@@ -1,4 +1,7 @@
 # Compulsory line, this is a version 3 file
 version=3
 # Uncomment to find new files on sourceforge, for devscripts >= 2.9
-http://sf.net/statsmodels/scikits.statsmodels-(.*)\.zip
+# http://sf.net/statsmodels/scikits.statsmodels-(.*)\.zip
+# Fetch from github
+opts="filenamemangle=s/.*\/v(.*)/statsmodels-$1\.tar\.gz/,uversionmangle=s/rc/~rc/g" \
+  http://github.com/statsmodels/statsmodels/downloads .*tarball/v([\d\.a-z]+)
