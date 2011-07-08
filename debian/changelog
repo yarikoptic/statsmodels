@@ -1,3 +1,13 @@
+statsmodels (0.3.0~rc1+132-gfd71fb3-1) UNRELEASED; urgency=low
+
+  * Upstream snapshot post RC1:
+    - upstream moved to GIT, Debian packaging repository reinitilized
+      borrowing debian/ branch from previous one (git-bzr imported)
+  * debian/control: boosted policy to 3.9.2 -- no changes
+  * debian/watch: fetch from github
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 07 Jul 2011 22:43:21 -0400
+
 statsmodels (0.3.0~bzr20110330-1) neurodebian; urgency=low
 
   * Fresh snapshot of BZR 0.3-devel series
