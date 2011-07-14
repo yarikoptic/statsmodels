@@ -1,6 +1,6 @@
-statsmodels (0.3.0~rc1+132-gfd71fb3-1) UNRELEASED; urgency=low
+statsmodels (0.3.0~rc2+4-gc78fbe1-1) UNRELEASED; urgency=low
 
-  * Upstream snapshot post RC1:
+  * Upstream snapshot post RC2:
     - upstream moved to GIT, Debian packaging repository reinitilized
       borrowing debian/ branch from previous one (git-bzr imported)
   * debian/control: boosted policy to 3.9.2 -- no changes
