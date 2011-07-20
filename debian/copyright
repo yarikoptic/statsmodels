@@ -7,8 +7,8 @@ Source: http://github.com/statsmodels/statsmodels
 
 Files: *
 Copyright: Copyright (C) 2006, Jonathan E. Taylor
-		   Copyright (C) 2006-2008 Scipy Developers.
-		   Copyright (C) 2009-2011 Statsmodels Developers.
+           Copyright (C) 2006-2008 Scipy Developers.
+           Copyright (C) 2009-2011 Statsmodels Developers.
 License: BSD-3
 
 Files: scikits/statsmodels/sandbox/tsa/diffusion2.py
@@ -36,6 +36,36 @@ License: BSD-2
  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  POSSIBILITY OF SUCH DAMAGE.
 
+Files: scikits/statsmodels/datasets/anes96/anes96.csv
+       scikits/statsmodels/datasets/grunfeld/grunfeld.csv
+       scikits/statsmodels/datasets/longley/longley.csv
+       scikits/statsmodels/datasets/macrodata/macrodata.csv
+       scikits/statsmodels/datasets/nile/nile.csv
+       scikits/statsmodels/datasets/randhie/randhie.csv
+       scikits/statsmodels/datasets/stackloss/stackloss.csv
+       scikits/statsmodels/datasets/strikes/strikes.csv
+       scikits/statsmodels/datasets/sunspots/sunspots.csv
+Copyright: public-domain
+
+Files: scikits/statsmodels/datasets/ccard/ccard.csv
+Copyright: William Greene
+License: BSD-3
+Comment: Used with express permission of the original author, who retains all rights
+
+Files: scikits/statsmodels/datasets/committee/committee.csv
+       scikits/statsmodels/datasets/copper/copper.csv
+       scikits/statsmodels/datasets/cpunish/cpunish.csv
+       scikits/statsmodels/datasets/scotland/scotland.csv
+       scikits/statsmodels/datasets/star98/star98.csv
+Copyright: Jeff Gill
+License: BSD-3
+Comment: Used with express permission of the original author, who retains all rights
+
+Files: scikits/statsmodels/datasets/spector/spector.csv
+Copyright: Lee Spector
+License: BSD-3
+Comment: Used with express permission of the original author, who retains all rights
+
 Files: debian/*
 Copyright: Copyright (C) 2010-2011, Yaroslav Halchenko <debian@onerussian.com>
 License: BSD-3
@@ -49,14 +79,14 @@ License: BSD-3
    b. Redistributions in binary form must reproduce the above copyright
       notice, this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-   c. Neither the name of the Enthought nor the names of its contributors
+   c. Neither the name of the Statsmodels nor the names of its contributors
       may be used to endorse or promote products derived from this software
       without specific prior written permission.
  .
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- ARE DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR
+ ARE DISCLAIMED. IN NO EVENT SHALL STATSMODELS OR CONTRIBUTORS BE LIABLE FOR
  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER

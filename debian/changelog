@@ -1,3 +1,13 @@
+statsmodels (0.3.0-1) neurodebian; urgency=low
+
+  * Upstream release -- upload to Debian proper is pending the removal of
+    WFS dataset (research only restriction)
+  * debian/copyright: expanded to mention copyrights for the included
+    datasets, adjusted BSD-3 license text to use project's name instead
+    of "stock" regents.
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 19 Jul 2011 22:40:18 -0400
+
 statsmodels (0.3.0~rc2+4-gc78fbe1-1) UNRELEASED; urgency=low
 
   * Upstream snapshot post RC2:
