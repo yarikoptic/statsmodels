@@ -50,3 +50,6 @@ override_dh_installdocs:
 	: # Use jquery from Debian package, so prune shipped one
 	-rm ./build/html/_static/jquery.js
 	dh_installdocs
+
+get-orig-source:
+	uscan --upstream-version 0 --rename

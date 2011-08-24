@@ -1,3 +1,10 @@
+statsmodels (0.3.1-1) unstable; urgency=low
+
+  * Added get-orig-source rule to fetch from github using uscan
+  * Initial release -- upload to Debian (Closes: #570604)
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 24 Aug 2011 23:14:01 +0200
+
 statsmodels (0.3.0-1) neurodebian; urgency=low
 
   * Upstream release -- upload to Debian proper is pending the removal of
@@ -21,7 +28,7 @@ statsmodels (0.3.0~rc2+4-gc78fbe1-1) UNRELEASED; urgency=low
 statsmodels (0.3.0~bzr20110330-1) neurodebian; urgency=low
 
   * Fresh snapshot of BZR 0.3-devel series
-  * Initial release (Closes: #570604)
+  * Initial upload to Debian was rejected due to data licensing issues
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 29 Mar 2011 17:48:04 -0400
 
