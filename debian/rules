@@ -35,6 +35,7 @@ override_dh_auto_install: ${PYVERS:%=python-install%}
 	find debian -wholename \*scikits/__init__.py -delete
 	: # strip docs/ since they aren't really a Python module, there is -doc for it
 	find debian -wholename \*scikits/statsmodels/docs | xargs rm -rf
+	find debian -iname COPYING | xargs -r rm -f
 
 override_dh_auto_test:
 	: # Test and do not exit on failure since there are knowntofail atm

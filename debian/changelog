@@ -2,6 +2,8 @@ statsmodels (0.3.1-2) unstable; urgency=low
 
   * debian/copyright: extended list of copyrights/licenses. Thanks to
     Luca Falavigna for the thorough review
+  * debian/rules: remove shipped COPYING files due to duplication of
+    debian/copyright
   * Initial release -- upload to Debian (Closes: #570604)
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 25 Aug 2011 23:23:37 +0200
