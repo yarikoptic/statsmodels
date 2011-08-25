@@ -1,4 +1,4 @@
-Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=174
+Format: http://anonscm.debian.org/viewvc/dep/web/deps/dep5.mdwn?revision=174
 Upstream-Name: scikits.statsmodels
 Upstream-Contact: Skipper Seabold <jsseabold@gmail.com>
 Debianized-By: Yaroslav Halchenko <debian@onerussian.com>
@@ -6,13 +6,13 @@ Debianized-Date: Thu, 06 May 2010 23:02:18 -0400
 Source: http://github.com/statsmodels/statsmodels
 
 Files: *
-Copyright: Copyright (C) 2006, Jonathan E. Taylor
-           Copyright (C) 2006-2008 Scipy Developers.
-           Copyright (C) 2009-2011 Statsmodels Developers.
+Copyright: 2006, Jonathan E. Taylor
+           2006-2008, Scipy Developers.
+           2009-2011, Statsmodels Developers.
 License: BSD-3
 
 Files: scikits/statsmodels/sandbox/tsa/diffusion2.py
-Copyright: Copyright (C) 2008, Attilio Meucci
+Copyright: 2008, Attilio Meucci
 License: BSD-2
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are
@@ -35,6 +35,12 @@ License: BSD-2
  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  POSSIBILITY OF SUCH DAMAGE.
+
+Files: scikits/statsmodels/datasets/*
+Copyright: 2007, David Cournapeau <cournape@gmail.com>
+License: BSD-3
+Comment: concerns code parts, corresponding data files license terms
+         described below
 
 Files: scikits/statsmodels/datasets/anes96/anes96.csv
        scikits/statsmodels/datasets/grunfeld/grunfeld.csv
@@ -66,8 +72,13 @@ Copyright: Lee Spector
 License: BSD-3
 Comment: Used with express permission of the original author, who retains all rights
 
+Files: scikits/statsmodels/iolib/*
+Copyright: 2007, Joe Presbrey <presbrey@mit.edu>
+           2009-2011, Statsmodels Developers
+License: MIT and BSD-3
+
 Files: debian/*
-Copyright: Copyright (C) 2010-2011, Yaroslav Halchenko <debian@onerussian.com>
+Copyright: 2010-2011, Yaroslav Halchenko <debian@onerussian.com>
 License: BSD-3
 
 License: BSD-3
@@ -94,3 +105,30 @@ License: BSD-3
  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  DAMAGE.
+
+License: MIT
+ Permission is hereby granted, free of charge, to any person
+ obtaining a copy of this software and associated documentation
+ files (the "Software"), to deal in the Software without
+ restriction, including without limitation the rights to use,
+ copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following
+ conditions:
+ .
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ OTHER DEALINGS IN THE SOFTWARE.
+ .
+ Except as contained in this notice, the name(s) of the above
+ copyright holders shall not be used in advertising or otherwise
+ to promote the sale, use or other dealings in this Software
+ without prior written authorization.
