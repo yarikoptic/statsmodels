@@ -1,8 +1,6 @@
-Format: http://anonscm.debian.org/viewvc/dep/web/deps/dep5.mdwn?revision=174
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: scikits.statsmodels
-Upstream-Contact: Skipper Seabold <jsseabold@gmail.com>
-Debianized-By: Yaroslav Halchenko <debian@onerussian.com>
-Debianized-Date: Thu, 06 May 2010 23:02:18 -0400
+Upstream-Contact: pystatsmodels@googlegroups.com
 Source: http://github.com/statsmodels/statsmodels
 
 Files: *
@@ -51,7 +49,9 @@ Files: scikits/statsmodels/datasets/anes96/anes96.csv
        scikits/statsmodels/datasets/stackloss/stackloss.csv
        scikits/statsmodels/datasets/strikes/strikes.csv
        scikits/statsmodels/datasets/sunspots/sunspots.csv
-Copyright: public-domain
+Copyright: N/A
+License: public-domain
+  Factual data
 
 Files: scikits/statsmodels/datasets/ccard/ccard.csv
 Copyright: William Greene
