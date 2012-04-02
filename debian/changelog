@@ -1,3 +1,12 @@
+statsmodels (0.4.0~rc1-5) experimental; urgency=low
+
+  * Fresh upstream pre-release
+    - up_broken_imports patch now dropped (upstreamed)
+  * debian/watch:
+    - use githubredir.debian.net
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 02 Apr 2012 10:07:20 -0400
+
 statsmodels (0.3.1-4) unstable; urgency=low
 
   * Added patch from Ubuntu: fix_test_discrete.patch.  Thanks Michael Terry for
