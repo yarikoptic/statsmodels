@@ -3,6 +3,16 @@
 build
 # setup.py dist directory
 ./dist
+#docs build and others
+#generated  #not yet? generated for dataset not rebuild
+docs/source/generated
+docs/source/dev/generated
+docs/source/examples/generated
+
+# generated c source and built extensions
+*.c
+*.so
+*.pyd
 
 # repository directories for bzr-git
 .bzr
@@ -36,4 +46,4 @@ marks.bzr
 help
 
 # Project specific
-scikits/statsmodels/version.py
+statsmodels/version.py

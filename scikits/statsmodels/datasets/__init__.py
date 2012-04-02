@@ -1,8 +1,4 @@
-"""
-Datasets module
-"""
-#__all__ = filter(lambda s:not s.startswith('_'),dir())
-from datautils import Dataset
-import anes96, committee, ccard, copper, cpunish, grunfeld, longley, \
-        macrodata, randhie, scotland, spector, stackloss, star98, sunspots, \
-        nile, strikes
+import warnings
+warnings.warn('scikits.statsmodels namespace is deprecated and will be '
+              'removed in 0.5, please use statsmodels instead')
+from statsmodels.datasets import *
