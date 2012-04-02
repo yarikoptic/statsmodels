@@ -5,7 +5,7 @@ on the meta-information from the datasets of the currently installed version.
 Ie., it imports the datasets package to scrape the meta-information.
 """
 
-import scikits.statsmodels.api as sm
+import statsmodels.api as sm
 import os
 from os.path import join
 import inspect
@@ -38,7 +38,7 @@ $COPYRIGHT
 """)
 
 for dataset in datasets:
-    write_pth = join('../scikits/statsmodels/docs/source/datasets/generated',
+    write_pth = join('../docs/source/datasets/generated',
                              dataset+'.rst')
     data_mod = datasets[dataset]
     with open(os.path.realpath(write_pth), 'w') as rst_file:

@@ -1,6 +1,4 @@
-#collect some imports of verified (at least one example) functions
-from scikits.statsmodels.sandbox.stats.multicomp import \
-             multipletests, fdrcorrection0, fdrcorrection_twostage, tukeyhsd
-
-from scikits.statsmodels import NoseWrapper as Tester
-test = Tester().test
+import warnings
+warnings.warn('scikits.statsmodels namespace is deprecated and will be '
+              'removed in 0.5, please use statsmodels instead')
+from statsmodels.stats import *
