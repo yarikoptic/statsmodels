@@ -1,15 +1,15 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: scikits.statsmodels
+Upstream-Name: statsmodels
 Upstream-Contact: pystatsmodels@googlegroups.com
 Source: http://github.com/statsmodels/statsmodels
 
 Files: *
 Copyright: 2006, Jonathan E. Taylor
            2006-2008, Scipy Developers.
-           2009-2011, Statsmodels Developers.
+           2009-2012, Statsmodels Developers.
 License: BSD-3
 
-Files: scikits/statsmodels/sandbox/tsa/diffusion2.py
+Files: statsmodels/sandbox/tsa/diffusion2.py
 Copyright: 2008, Attilio Meucci
 License: BSD-2
  Redistribution and use in source and binary forms, with or without
@@ -34,45 +34,45 @@ License: BSD-2
  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  POSSIBILITY OF SUCH DAMAGE.
 
-Files: scikits/statsmodels/datasets/*
+Files: statsmodels/datasets/*
 Copyright: 2007, David Cournapeau <cournape@gmail.com>
 License: BSD-3
 Comment: concerns code parts, corresponding data files license terms
          described below
 
-Files: scikits/statsmodels/datasets/anes96/anes96.csv
-       scikits/statsmodels/datasets/grunfeld/grunfeld.csv
-       scikits/statsmodels/datasets/longley/longley.csv
-       scikits/statsmodels/datasets/macrodata/macrodata.csv
-       scikits/statsmodels/datasets/nile/nile.csv
-       scikits/statsmodels/datasets/randhie/randhie.csv
-       scikits/statsmodels/datasets/stackloss/stackloss.csv
-       scikits/statsmodels/datasets/strikes/strikes.csv
-       scikits/statsmodels/datasets/sunspots/sunspots.csv
+Files: statsmodels/datasets/anes96/anes96.csv
+       statsmodels/datasets/grunfeld/grunfeld.csv
+       statsmodels/datasets/longley/longley.csv
+       statsmodels/datasets/macrodata/macrodata.csv
+       statsmodels/datasets/nile/nile.csv
+       statsmodels/datasets/randhie/randhie.csv
+       statsmodels/datasets/stackloss/stackloss.csv
+       statsmodels/datasets/strikes/strikes.csv
+       statsmodels/datasets/sunspots/sunspots.csv
 Copyright: N/A
 License: public-domain
   Factual data
 
-Files: scikits/statsmodels/datasets/ccard/ccard.csv
+Files: statsmodels/datasets/ccard/ccard.csv
 Copyright: William Greene
 License: BSD-3
 Comment: Used with express permission of the original author, who retains all rights
 
-Files: scikits/statsmodels/datasets/committee/committee.csv
-       scikits/statsmodels/datasets/copper/copper.csv
-       scikits/statsmodels/datasets/cpunish/cpunish.csv
-       scikits/statsmodels/datasets/scotland/scotland.csv
-       scikits/statsmodels/datasets/star98/star98.csv
+Files: statsmodels/datasets/committee/committee.csv
+       statsmodels/datasets/copper/copper.csv
+       statsmodels/datasets/cpunish/cpunish.csv
+       statsmodels/datasets/scotland/scotland.csv
+       statsmodels/datasets/star98/star98.csv
 Copyright: Jeff Gill
 License: BSD-3
 Comment: Used with express permission of the original author, who retains all rights
 
-Files: scikits/statsmodels/datasets/spector/spector.csv
+Files: statsmodels/datasets/spector/spector.csv
 Copyright: Lee Spector
 License: BSD-3
 Comment: Used with express permission of the original author, who retains all rights
 
-Files: scikits/statsmodels/iolib/*
+Files: statsmodels/iolib/*
 Copyright: 2007, Joe Presbrey <presbrey@mit.edu>
            2009-2011, Statsmodels Developers
 License: MIT and BSD-3
