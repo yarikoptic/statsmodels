@@ -1,16 +1,16 @@
 statsmodels (0.4.0~rc1-1) experimental; urgency=low
 
-  * Fresh upstream pre-release
+  * Fresh upstream pre-release (+ few BF commits after)
     - all patches dropped (upstreamed)
     - scikits. name space is getting deprecated:
-      - python-scikits.statsmodels provided to ease code transition
+      - python-scikits.statsmodels is provided to ease code transition
       - python-statsmodels-doc replaces python-scikits.statsmodels-doc
     - python-statsmodels-lib is introduced to carry arch-dependent
       extensions
   * debian/watch:
     - use githubredir.debian.net
   * debian/{rules,control}
-    - rules cythonize to (re-)cythonize .pyx files so they could be
+    - rule cythonize to (re-)cythonize .pyx files so they could be
       built on older releases
     - use custom IPython01x available from NeuroDebian on older releases
       to build documentation
