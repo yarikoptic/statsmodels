@@ -9,6 +9,11 @@ statsmodels (0.4.0~rc1-1) experimental; urgency=low
       extensions
   * debian/watch:
     - use githubredir.debian.net
+  * debian/{rules,control}
+    - rules cythonize to (re-)cythonize .pyx files so they could be
+      built on older releases
+    - use custom IPython01x available from NeuroDebian on older releases
+      to build documentation
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 02 Apr 2012 10:07:20 -0400
 

@@ -6,8 +6,40 @@
 export HOME=$(CURDIR)/build
 export MPLCONFIGDIR=$(HOME)
 
+PYVERS = $(shell pyversions -vr)
+PYVER = $(shell pyversions -vd)
+
+UVER := $(shell LC_ALL=C dpkg-parsechangelog | awk '/^Version:/{print $$2;}' | sed -e 's,-[^-]*$$,,g')
+CYTHONVER := $(shell dpkg -l cython | awk '/^ii/{print $$3;}' || echo 0)
+MPLVER := $(shell dpkg -l python-matplotlib | awk '/^ii/{print $$3;}' || echo 0)
+IPYTHONVER := $(shell ipython -V || echo 0) # 0.12 is needed to build docs, otherwise use IPython01x
+IPYTHONPATH := $(shell dpkg --compare-versions $(IPYTHONVER) lt 0.12 \
+				 && echo ":/usr/lib/python$(PYVER)/dist-packages/IPython01X" || echo '')
+
+MIN_CYTHONVER = 0.15.1
+
+ifeq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+export OPT+=-g -O0
+endif
+
 %:
 	dh  $@
+
+
+cythonize:
+	find statsmodels -iname *.pyx | sed -e 's,\.pyx,\.c,g' | xargs -r rm
+	: # since there is no cython command and I have no time...
+	python setup.py build_ext --inplace -f
+	cp $$(find statsmodels -iname *.pyx | sed -e 's,\.pyx,\.c,g') debian/cythonized-files
+	echo "$(UVER)" >| debian/cythonized-files/VERSION
+
+override_dh_auto_configure:
+	dpkg --compare-versions $(CYTHONVER) lt $(MIN_CYTHONVER) && { \
+		echo "I: Using pre-Cython-ed files"; \
+		find -iname *pyx | while read p; do \
+		  f=$$(basename $$p); f=$${f%%.pyx}; d=$$(dirname $$p); \
+		  cp -rp debian/cythonized-files/$$f.c $$d/; done; } || :
+	dh_auto_configure
 
 # Build docs during build
 override_dh_auto_build:
@@ -17,7 +49,7 @@ override_dh_auto_build:
 	: # Build Documentation -- assure existence of build/html for nodoc
 	mkdir -p build/html
 ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
-	export PYTHONPATH=$(CURDIR) ; \
+	export PYTHONPATH=$(CURDIR)$(IPYTHONPATH) ; \
 	 $(MAKE) -C docs html
 	mv docs/build/* build/
 	rm -rf docs/source/generated/
