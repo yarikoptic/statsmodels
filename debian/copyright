@@ -34,6 +34,10 @@ License: BSD-2
  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  POSSIBILITY OF SUCH DAMAGE.
 
+Files: statsmodels/stats/libqsturng
+Copyright: 2011, Roger Lew
+License: BSD-3
+
 Files: statsmodels/datasets/*
 Copyright: 2007, David Cournapeau <cournape@gmail.com>
 License: BSD-3

@@ -7,6 +7,8 @@ statsmodels (0.4.0~rc2-1) experimental; urgency=low
       - python-statsmodels-doc replaces python-scikits.statsmodels-doc
     - python-statsmodels-lib is introduced to carry arch-dependent
       extensions
+  * debian/copyright:
+    - entry for statsmodels/stats/libqsturng
   * debian/watch:
     - use githubredir.debian.net
   * debian/{rules,control}
