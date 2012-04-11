@@ -43,7 +43,7 @@ Description: Python module for the estimation of statistical models
 
 Package: python-statsmodels-lib
 Architecture: any
-Depends: ${misc:Depends}, ${python:Depends}, ${shlib:Depends},
+Depends: ${misc:Depends}, ${python:Depends}, ${shlibs:Depends},
          python-numpy
 Conflicts: python-scikits-statsmodels, python-scikits.statsmodels (<< 0.4)
 Replaces: python-scikits-statsmodels, python-scikits.statsmodels (<< 0.4)

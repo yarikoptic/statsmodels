@@ -89,6 +89,10 @@ endif
 
 override_dh_install:
 	dh_install
+	: # Fix up "installation" of scikits- compatibility layer
+	td=debian/python-scikits.statsmodels; mkdir -p $${td}/usr; \
+		mv $${td}/debian/python-statsmodels/usr/lib $${td}/usr/ && \
+		rm -rf $${td}/debian
 	: # Prune scikits from python-statsmodels
 	: # They must have been copied into python-scikits.statsmodels by dh_install
 	rm -rf debian/python-statsmodels/usr/lib/python*/*/scikits
@@ -100,7 +104,7 @@ override_dh_install:
 	find debian -name *.pyc -delete
 	: # strip docs/ since they aren't really a Python module, there is -doc for it
 	: # TODO find debian -wholename \*scikits/statsmodels/docs | xargs rm -rf
-	find debian -iname COPYING | xargs -r rm -f
+	find debian -iname COPYING -o -iname LICENSE* | xargs -r rm -f
 
 
 ## immediately useable documentation and exemplar scripts/data
