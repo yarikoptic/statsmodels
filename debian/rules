@@ -30,9 +30,10 @@ endif
 
 
 cythonize:
-	find statsmodels -iname *.pyx | sed -e 's,\.pyx,\.c,g' | xargs -r rm
+	find statsmodels -iname *.pyx | sed -e 's,\.pyx,\.c,g' | xargs -r rm -f
 	: # since there is no cython command and I have no time...
 	python setup.py build_ext --inplace -f
+	mkdir -p debian/cythonized-files
 	cp $$(find statsmodels -iname *.pyx | sed -e 's,\.pyx,\.c,g') debian/cythonized-files
 	echo "$(UVER)" >| debian/cythonized-files/VERSION
 
