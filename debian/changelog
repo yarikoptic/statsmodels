@@ -1,4 +1,4 @@
-statsmodels (0.4.0~rc2-1) experimental; urgency=low
+statsmodels (0.4.0~rc2+git6-g756f2d0-1) experimental; urgency=low
 
   * Fresh upstream pre-release
     - all patches dropped (upstreamed)
