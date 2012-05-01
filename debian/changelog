@@ -1,3 +1,9 @@
+statsmodels (0.4.0-1) unstable; urgency=low
+
+  * Fresh upstream release
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 01 May 2012 09:34:58 -0400
+
 statsmodels (0.4.0~rc2+git6-g756f2d0-1) experimental; urgency=low
 
   * Fresh upstream pre-release
