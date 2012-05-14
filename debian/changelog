@@ -3,6 +3,8 @@ statsmodels (0.4.0-2) unstable; urgency=low
   * Removed python-rpy from Recommends to avoid pulling Rtillery with
     with the default installation of statsmodels and pandas, since rpy apparently
     is mentioned only in some legacy code
+  * Added patch up_versioncomparison_with_rc to "cherry-pick" 45ee896 for
+    robust version comparison with rc versions of numpy/scipy
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Sun, 13 May 2012 20:40:37 -0400
 
