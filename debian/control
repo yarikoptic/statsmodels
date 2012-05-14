@@ -29,7 +29,6 @@ Depends: ${misc:Depends}, ${python:Depends},
 Recommends: python-pandas,
             python-matplotlib,
             python-nose,
-            python-rpy,
             python-joblib,
 Provides: ${python:Provides}
 Conflicts: python-scikits-statsmodels, python-scikits.statsmodels (<< 0.4)

@@ -1,3 +1,11 @@
+statsmodels (0.4.0-2) unstable; urgency=low
+
+  * Removed python-rpy from Recommends to avoid pulling Rtillery with
+    with the default installation of statsmodels and pandas, since rpy apparently
+    is mentioned only in some legacy code
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Sun, 13 May 2012 20:40:37 -0400
+
 statsmodels (0.4.0-1) unstable; urgency=low
 
   * Fresh upstream release
