@@ -1,6 +1,7 @@
 statsmodels (0.4.0+git6-g68df6fb-1) UNRELEASED; urgency=low
 
   * Fresh upstream snapshot in preparation to 0.4.1
+    - dropped up_versioncomparison_with_rc
   * Do fail if unittests fail
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 15 May 2012 22:30:21 -0400
