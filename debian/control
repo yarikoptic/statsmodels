@@ -12,6 +12,7 @@ Build-Depends: debhelper (>= 7.0.50~),
                python-matplotlib,
                python-sphinx (>= 1.0.6),
                python-pandas,
+               python-joblib,
                ipython (>= 0.12) | ipython01x,
                cython,
 Standards-Version: 3.9.3
