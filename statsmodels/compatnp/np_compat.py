@@ -49,7 +49,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
 
-if np.version < '1.6.2':
+if np.__version__ < '1.6.2':
     npc_unique = np.unique
 else:
 
@@ -157,4 +157,3 @@ else:
             ar.sort()
             flag = np.concatenate(([True], ar[1:] != ar[:-1]))
             return ar[flag]
-
