@@ -1,6 +1,6 @@
-statsmodels (0.4.0+git1162-g602ec99-1) UNRELEASED; urgency=low
+statsmodels (0.4.1-1) unstable; urgency=low
 
-  * Fresh upstream snapshot in preparation to 0.4.1
+  * Fresh upstream release
     - dropped up_versioncomparison_with_rc
     - require Python >= 2.6
   * Do fail if unittests fail
