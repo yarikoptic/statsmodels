@@ -1,9 +1,8 @@
-statsmodels (0.4.1+git19-g0693281-1) experimental; urgency=low
+statsmodels (0.4.2-1) unstable; urgency=low
 
-  * New upstream snapshot from origin/maintenance/0.4.x at v0.4.1-19-
-    g0693281 to see if FTBFS were fixed across big-endian architectures.
+  * Fresh upstream release addressing FTBFS across big-endian architectures.
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 28 Jun 2012 13:37:56 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Fri, 29 Jun 2012 17:26:36 -0400
 
 statsmodels (0.4.1-1) unstable; urgency=low
 
