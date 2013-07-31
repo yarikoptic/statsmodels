@@ -28,7 +28,6 @@ import statsmodels.base.model as base
 import statsmodels.regression.linear_model as lm
 import statsmodels.base.wrapper as wrap
 
-from scipy.stats import t
 from statsmodels.tools.sm_exceptions import PerfectSeparationError
 
 __all__ = ['GLM']
@@ -38,7 +37,7 @@ def _check_convergence(criterion, iteration, tol, maxiter):
             and iteration <= maxiter)
 
 class GLM(base.LikelihoodModel):
-    '''
+    __doc__ = '''
     Generalized Linear Models class
 
     GLM inherits from statsmodels.LikelihoodModel
@@ -46,17 +45,19 @@ class GLM(base.LikelihoodModel):
     Parameters
     -----------
     endog : array-like
-        1d array of endogenous response variable.  This array can be
-        1d or 2d.  Binomial family models accept a 2d array with two columns.
-        If supplied, each observation is expected to be [success, failure].
+        1d array of endogenous response variable.  This array can be 1d or 2d.
+        Binomial family models accept a 2d array with two columns. If
+        supplied, each observation is expected to be [success, failure].
     exog : array-like
-        n x p design / exogenous data array
+        A nobs x k array where `nobs` is the number of observations and `k`
+        is the number of regressors. An interecept is not included by default
+        and should be added by the user. See `statsmodels.tools.add_constant`.
     family : family class instance
         The default is Gaussian.  To specify the binomial distribution
         family = sm.family.Binomial()
         Each family can take a link instance as an argument.  See
         statsmodels.family.family for more information.
-
+    %(extra_params)s
 
     Attributes
     -----------
@@ -91,14 +92,13 @@ class GLM(base.LikelihoodModel):
 
     Instantiate a gamma family model with the default link function.
 
-    >>> gamma_model = sm.GLM(data.endog, data.exog,        \
-                             family=sm.families.Gamma())
+    >>> gamma_model = sm.GLM(data.endog, data.exog,
+    ...                      family=sm.families.Gamma())
 
     >>> gamma_results = gamma_model.fit()
     >>> gamma_results.params
-    array([  4.96176830e-05,   2.03442259e-03,  -7.18142874e-05,
-         1.11852013e-04,  -1.46751504e-07,  -5.18683112e-04,
-        -2.42717498e-06,  -1.77652703e-02])
+    array([-0.01776527,  0.00004962,  0.00203442, -0.00007181,  0.00011185,
+           -0.00000015, -0.00051868, -0.00000243])
     >>> gamma_results.scale
     0.0035842831734919055
     >>> gamma_results.deviance
@@ -182,12 +182,17 @@ class GLM(base.LikelihoodModel):
         The value of the weights after the last iteration of fit.  Only
         available after fit is called.  See statsmodels.families.family for
         the specific distribution weighting functions.
+    ''' % {'extra_params' : base._missing_param_doc}
 
-    '''
-
-    def __init__(self, endog, exog, family=None, offset=None, exposure=None):
-        super(GLM, self).__init__(endog, exog)
-        self._sanitize_inputs(family, offset, exposure)
+    def __init__(self, endog, exog, family=None, offset=None, exposure=None,
+                        missing='none'):
+        self._check_inputs(family, offset, exposure, endog)
+        super(GLM, self).__init__(endog, exog, missing=missing,
+                                  offset=self.offset, exposure=self.exposure)
+        if offset is None:
+            delattr(self, 'offset')
+        if exposure is None:
+            delattr(self, 'exposure')
         #things to remove_data
         self._data_attr.extend(['weights', 'pinv_wexog', 'mu', 'data_weights',
                                 ])
@@ -208,22 +213,22 @@ class GLM(base.LikelihoodModel):
         self.df_model = rank(self.exog)-1
         self.df_resid = self.exog.shape[0] - rank(self.exog)
 
-    def _sanitize_inputs(self, family, offset, exposure):
+    def _check_inputs(self, family, offset, exposure, endog):
         if family is None:
             family = families.Gaussian()
         self.family = family
 
         if offset is not None:
             offset = np.asarray(offset)
-            if offset.shape[0] != self.endog.shape[0]:
+            if offset.shape[0] != endog.shape[0]:
                 raise ValueError("offset is not the same length as endog")
-            self.offset = offset
+        self.offset = offset
 
         if exposure is not None:
             exposure = np.log(exposure)
-            if exposure.shape[0] != self.endog.shape[0]:
+            if exposure.shape[0] != endog.shape[0]:
                 raise ValueError("exposure is not the same length as endog")
-            self.exposure = exposure
+        self.exposure = exposure
 
     def score(self, params):
         """
@@ -544,10 +549,6 @@ class GLMResults(base.LikelihoodModelResults):
 
 
     @cache_readonly
-    def pvalues(self):
-        return t.sf(np.abs(self.tvalues), self.df_resid)*2
-
-    @cache_readonly
     def pearson_chi2(self):
         chisq =  (self._endog- self.mu)**2 / self.family.variance(self.mu)
         chisq *= self._data_weights
@@ -668,7 +669,7 @@ class GLMResults(base.LikelihoodModelResults):
         smry = Summary()
         smry.add_table_2cols(self, gleft=top_left, gright=top_right, #[],
                           yname=yname, xname=xname, title=title)
-        smry.add_table_params(self, yname=yname, xname=xname, alpha=.05,
+        smry.add_table_params(self, yname=yname, xname=xname, alpha=alpha,
                              use_t=True)
 
         #diagnostic table is not used yet:
@@ -679,233 +680,44 @@ class GLMResults(base.LikelihoodModelResults):
         return smry
 
 
-    def summary_old(self, yname=None, xname=None,
-                    title='Generalized linear model', returns='text'):
-        """
-        Print a table of results or returns SimpleTable() instance which
-        summarizes the Generalized linear model results.
+    def summary2(self, yname=None, xname=None, title=None, alpha=.05,
+                float_format="%.4f"):
+
+        """Experimental summary for regression Results
 
         Parameters
         -----------
         yname : string
-                optional, Default is `Y`
-        xname : list of strings
-                optional, Default is `X.#` for # in p the number of regressors
-        title : string
-                optional, Defualt is 'Generalized linear model'
-        returns : string
-                  'text', 'table', 'csv', 'latex', 'html'
+            Name of the dependent variable (optional)
+        xname : List of strings of length equal to the number of parameters
+            Names of the independent variables (optional)
+        title : string, optional
+            Title for the top table. If not None, then this replaces the
+            default title
+        alpha : float
+            significance level for the confidence intervals
+        float_format: string
+            print format for floats in parameters summary
 
         Returns
         -------
-        Defualt :
-        returns='print'
-                Prints the summarirized results
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
 
-        Option :
-        returns='text'
-                Prints the summarirized results
-
-        Option :
-        returns='table'
-                 SimpleTable instance : summarizing the fit of a linear model.
-
-        Option :
-        returns='csv'
-                returns a string of csv of the results, to import into a
-                spreadsheet
-
-        Option :
-        returns='latex'
-        Not implimented yet
-
-        Option :
-        returns='HTML'
-        Not implimented yet
-
-
-        Examples (needs updating)
+        See Also
         --------
-        >>> import statsmodels.api as sm
-        >>> data = sm.datasets.longley.load()
-        >>> data.exog = sm.add_constant(data.exog)
-        >>> ols_results = sm.OLS(data.endog, data.exog).results
-        >>> print ols_results.summary()
-        ...
+        statsmodels.iolib.summary.Summary : class to hold summary
+            results
 
-        Notes
-        -----
-        stand_errors are not implimented.
-        conf_int calculated from normal dist.
         """
-        import time as Time
-        from statsmodels.iolib import SimpleTable
+        self.method = 'IRLS'
+        from statsmodels.iolib import summary2
+        smry = summary2.Summary()
+        smry.add_base(results=self, alpha=alpha, float_format=float_format,
+                xname=xname, yname=yname, title=title)
 
-        yname = 'Y'
-        if xname is None:
-            xname = ['x%d' % i for i in range(self.model.exog.shape[1])]
-
-        #List of results used in summary
-        #yname = yname
-        #xname = xname
-        time = Time.localtime()
-        dist_family = self.model.family.__class__.__name__
-        df_model = self.df_model
-        df_resid = self.df_resid
-        llf = self.llf
-        nobs = self.nobs
-        params = self.params
-        scale = self.scale
-        #TODO   #stand_errors = self.stand_errors
-        stand_errors = self.bse  #[' ' for x in range(len(self.params))]
-        #Added note about conf_int
-        conf_int = self.conf_int()
-        #f_test() = self.f_test()
-        t = self.tvalues
-        #t_test = self.t_test()
-
-
-
-        table_1l_fmt = dict(
-            data_fmts = ["%s", "%s", "%s", "%s", "%s"],
-            empty_cell = '',
-            colwidths = 15,
-            colsep='   ',
-            row_pre = '  ',
-            row_post = '  ',
-            table_dec_above='=',
-            table_dec_below='',
-            header_dec_below=None,
-            header_fmt = '%s',
-            stub_fmt = '%s',
-            title_align='c',
-            header_align = 'r',
-            data_aligns = "r",
-            stubs_align = "l",
-            fmt = 'txt'
-            )
-        # Note table_1l_fmt over rides the below formating. in extend_right? JP
-        table_1r_fmt = dict(
-            data_fmts = ["%s", "%s", "%s", "%s", "%1s"],
-            empty_cell = '',
-            colwidths = 12,
-            colsep='   ',
-            row_pre = '',
-            row_post = '',
-            table_dec_above='=',
-            table_dec_below='',
-            header_dec_below=None,
-            header_fmt = '%s',
-            stub_fmt = '%s',
-            title_align='c',
-            header_align = 'r',
-            data_aligns = "r",
-            stubs_align = "l",
-            fmt = 'txt'
-            )
-
-        table_2_fmt = dict(
-            data_fmts = ["%s", "%s", "%s", "%s"],
-            #data_fmts = ["%#12.6g","%#12.6g","%#10.4g","%#5.4g"],
-            #data_fmts = ["%#10.4g","%#6.4f", "%#6.4f"],
-            #data_fmts = ["%#15.4F","%#15.4F","%#15.4F","%#14.4G"],
-            empty_cell = '',
-            colwidths = 13,
-            colsep=' ',
-            row_pre = '  ',
-            row_post = '   ',
-            table_dec_above='=',
-            table_dec_below='=',
-            header_dec_below='-',
-            header_fmt = '%s',
-            stub_fmt = '%s',
-            title_align='c',
-            header_align = 'r',
-            data_aligns = 'r',
-            stubs_align = 'l',
-            fmt = 'txt'
-        )
-        ########  summary table 1   #######
-        table_1l_title = title
-        table_1l_header = None
-        table_1l_stubs = ('Model Family:',
-                          'Method:',
-                          'Dependent Variable:',
-                          'Date:',
-                          'Time:',
-                          )
-        table_1l_data = [
-                         [dist_family],
-                         ['IRLS'],
-                         [yname],
-                         [Time.strftime("%a, %d %b %Y",time)],
-                         [Time.strftime("%H:%M:%S",time)],
-                        ]
-        table_1l = SimpleTable(table_1l_data,
-                            table_1l_header,
-                            table_1l_stubs,
-                            title=table_1l_title,
-                            txt_fmt = table_1l_fmt)
-        table_1r_title = None
-        table_1r_header = None
-        table_1r_stubs = ('# of obs:',
-                          'Df residuals:',
-                          'Df model:',
-                          'Scale:',
-                          'Log likelihood:'
-                          )
-        table_1r_data = [
-                         [nobs],
-                         [df_resid],
-                         [df_model],
-                         ["%#6.4f" % (scale,)],
-                         ["%#6.4f" % (llf,)]
-                        ]
-        table_1r = SimpleTable(table_1r_data,
-                            table_1r_header,
-                            table_1r_stubs,
-                            title=table_1r_title,
-                            txt_fmt = table_1r_fmt)
-
-        ########  summary table 2   #######
-        #TODO add % range to confidance interval column header
-        table_2header = ('coefficient', 'stand errors', 't-statistic',
-        'Conf. Interval')
-        table_2stubs = xname
-        table_2data = zip(
-                      ["%#6.4f" % (params[i]) for i in range(len(xname))],
-                      ["%#6.4f" % stand_errors[i] for i in range(len(xname))],
-                      ["%#6.4f" % (t[i]) for i in range(len(xname))],
-                      [""" [%#6.3f, %#6.3f]""" % tuple(conf_int[i]) for i in
-                                                          range(len(xname))]
-                      )
-
-
-        #dfmt={'data_fmt':["%#12.6g","%#12.6g","%#10.4g","%#5.4g"]}
-        table_2 = SimpleTable(table_2data,
-                            table_2header,
-                            table_2stubs,
-                            title=None,
-                            txt_fmt = table_2_fmt)
-
-        ########  Return Summary Tables ########
-        # join table table_s then print
-        if returns == 'text':
-            table_1l.extend_right(table_1r)
-            return str(table_1l) + '\n' +  str(table_2)
-        elif returns == 'print':
-            table_1l.extend_right(table_1r)
-            print(str(table_1l) + '\n' +  str(table_2))
-        elif returns == 'tables':
-            return [table_1l, table_1r, table_2]
-            #return [table_1, table_2 ,table_3L, notes]
-        elif returns == 'csv':
-            return table_1.as_csv() + '\n' + table_2.as_csv() + '\n' + \
-                   table_3L.as_csv()
-        elif returns == 'latex':
-            print('not avalible yet')
-        elif returns == html:
-            print('not avalible yet')
+        return smry
 
 
 class GLMResultsWrapper(lm.RegressionResultsWrapper):

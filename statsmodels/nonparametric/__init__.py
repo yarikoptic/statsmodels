@@ -1,6 +1,8 @@
-from kde import KDE
-#from smoothers_lowess import lowess
-import bandwidths
+"""
+Tools for nonparametric statistics, mainly density estimation and regression.
+
+For an overview of this module, see docs/source/nonparametric.rst
+"""
 
 from statsmodels import NoseWrapper as Tester
 test = Tester().test

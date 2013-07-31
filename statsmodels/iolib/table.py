@@ -85,7 +85,7 @@ Potential problems for Python 3
 from __future__ import division, with_statement
 import logging
 
-from statsmodels.compatnp.iter_compat import zip_longest as izip_longest
+from statsmodels.compatnp.iter_compat import zip_longest
 
 try: #plan for Python 3
     #from itertools import izip_longest, izip as zip
@@ -260,7 +260,7 @@ class SimpleTable(list):
         """
         header_rows = [header.split('\n') for header in headers]
         #rows in reverse order
-        rows = list(izip_longest(*header_rows, **dict(fillvalue='')))
+        rows = list(zip_longest(*header_rows, **dict(fillvalue='')))
         rows.reverse()
         for i, row in enumerate(rows):
             self.insert(rownum, row, datatype='header')
@@ -387,28 +387,44 @@ class SimpleTable(list):
         return '\n'.join(formatted_rows)
     def as_latex_tabular(self, **fmt_dict):
         '''Return string, the table as a LaTeX tabular environment.
-        Note: will equire the booktabs package.'''
+        Note: will require the booktabs package.'''
         #fetch the text format, override with fmt_dict
         fmt = self._get_fmt('latex', **fmt_dict)
-        aligns = self[-1].get_aligns('latex', **fmt)
-        formatted_rows = [ r'\begin{tabular}{%s}' % aligns ]
-
-        table_dec_above = fmt['table_dec_above']
-        if table_dec_above:
-            formatted_rows.append(table_dec_above)
-
-        formatted_rows.extend(
-            row.as_string(output_format='latex', **fmt) for row in self )
-
-        table_dec_below = fmt['table_dec_below']
-        if table_dec_below:
-            formatted_rows.append(table_dec_below)
-
-        formatted_rows.append(r'\end{tabular}')
+        
+        formatted_rows = ["\\begin{center}"]
+        
+        table_dec_above = fmt['table_dec_above'] or ''
+        table_dec_below = fmt['table_dec_below'] or ''
+        
+        prev_aligns = None
+        last = None
+        for row in self + [last]:
+            if row == last:
+                aligns = None
+            else:
+                aligns = row.get_aligns('latex', **fmt)
+            
+            if aligns != prev_aligns:
+                # When the number/type of columns changes...
+                if prev_aligns:
+                    # ... if there is a tabular to close, close it...
+                    formatted_rows.append(table_dec_below)
+                    formatted_rows.append( r'\end{tabular}' )
+                if aligns:
+                    # ... and if there are more lines, open a new one:
+                    formatted_rows.append( r'\begin{tabular}{%s}' % aligns )
+                    if not prev_aligns:
+                        # (with a nice line if it's the top of the whole table)
+                        formatted_rows.append(table_dec_above)
+            if row != last:
+                formatted_rows.append(
+                    row.as_string(output_format='latex', **fmt) )
+            prev_aligns = aligns
         #tabular does not support caption, but make it available for figure environment
         if self.title:
             title = r'%%\caption{%s}' % self.title
             formatted_rows.append(title)
+        formatted_rows.append( "\\end{center}" )
         return '\n'.join(formatted_rows)
         """
         if fmt_dict['strip_backslash']:
@@ -593,7 +609,7 @@ class Cell(object):
             self.data = data.data
             self._datatype = data.datatype
             self._fmt = data._fmt
-        except AttributeError: #passed ordinary data
+        except (AttributeError, TypeError): #passed ordinary data
             self.data = data
             self._datatype = datatype
             self._fmt = dict()
@@ -663,11 +679,16 @@ class Cell(object):
         data_aligns = fmt.get('data_aligns','c')
         if isinstance(datatype, int):
             datatype = datatype % len(data_fmts) #constrain to indexes
-            content = data_fmts[datatype] % data
+            content = data_fmts[datatype] % (data,)
         elif datatype in fmt:
+            if "replacements" in fmt:
+                if isinstance( data, str ):
+                    for repl in fmt["replacements"]:
+                        data = data.replace( repl, fmt["replacements"][repl] )
+            
             dfmt = fmt.get(datatype)
             try:
-                content = dfmt % data
+                content = dfmt % (data,)
             except TypeError: #dfmt is not a substitution string
                 content = dfmt
         else:
@@ -817,6 +838,7 @@ default_latex_fmt = dict(
         #stubs_align = 'l',   #deprecated; use data_fmts
         stub_align = 'l',
         header_align = 'c',
+        empty_align = 'l',
         #labeled formats
         header_fmt = r'\textbf{%s}', #deprecated; just use 'header'
         stub_fmt = r'\textbf{%s}', #deprecated; just use 'stub'
@@ -824,7 +846,8 @@ default_latex_fmt = dict(
         header = r'\textbf{%s}',
         stub = r'\textbf{%s}',
         empty = '',
-        missing = '--'
+        missing = '--',
+        replacements = {"%" : "\%", ">" : "$>$", "|" : "$|$"}
         )
 default_fmts = dict(
 html= default_html_fmt,

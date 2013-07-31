@@ -1,10 +1,12 @@
 from statsmodels.tsa.stattools import (adfuller, acf, pacf_ols, pacf_yw,
-                                               pacf, grangercausalitytests, coint)
-
+                                               pacf, grangercausalitytests,
+                                               coint, acovf)
+from statsmodels.tsa.base.datetools import dates_from_range
 import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_equal, assert_raises
 from numpy import genfromtxt#, concatenate
-from statsmodels.datasets import macrodata
+from statsmodels.datasets import macrodata, sunspots
+from pandas import Series, Index
 import os
 
 
@@ -125,17 +127,19 @@ class TestACF(CheckCorrGram):
         self.acf = self.results['acvar']
         #self.acf = np.concatenate(([1.], self.acf))
         self.qstat = self.results['Q1']
-        self.res1 = acf(self.x, nlags=40, qstat=True)
+        self.res1 = acf(self.x, nlags=40, qstat=True, alpha=.05)
+        self.confint_res = self.results[['acvar_lb','acvar_ub']].view((float,
+                                                                            2))
 
     def test_acf(self):
         assert_almost_equal(self.res1[0][1:41], self.acf, DECIMAL_8)
 
-#    def test_confint(self):
-#        pass
-#NOTE: need to figure out how to center confidence intervals
+    def test_confint(self):
+        centered = self.res1[1] - self.res1[1].mean(1)[:,None]
+        assert_almost_equal(centered[1:41], self.confint_res, DECIMAL_8)
 
     def test_qstat(self):
-        assert_almost_equal(self.res1[1][:40], self.qstat, DECIMAL_3)
+        assert_almost_equal(self.res1[2][:40], self.qstat, DECIMAL_3)
         # 3 decimal places because of stata rounding
 
 #    def pvalue(self):
@@ -166,8 +170,13 @@ class TestPACF(CheckCorrGram):
         self.pacfyw = self.results['PACYW']
 
     def test_ols(self):
-        pacfols = pacf_ols(self.x, nlags=40)
+        pacfols, confint = pacf(self.x, nlags=40, alpha=.05, method="ols")
         assert_almost_equal(pacfols[1:], self.pacfols, DECIMAL_6)
+        centered = confint - confint.mean(1)[:,None]
+        # from edited Stata ado file
+        res = [[-.1375625, .1375625]] * 40
+        assert_almost_equal(centered[1:41], res, DECIMAL_6)
+
 
     def test_yw(self):
         pacfyw = pacf_yw(self.x, nlags=40, method="mle")
@@ -219,7 +228,18 @@ def test_grangercausality():
     assert_almost_equal(gr[2][0]['params_ftest'], gr[2][0]['ssr_ftest'],
                         decimal=7)
 
+def test_pandasacovf():
+    s = Series(range(1, 11))
+    assert_almost_equal(acovf(s), acovf(s.values))
 
+def test_acovf2d():
+    dta = sunspots.load_pandas().data
+    dta.index = Index(dates_from_range('1700', '2008'))
+    del dta["YEAR"]
+    res = acovf(dta)
+    assert_equal(res, acovf(dta.values))
+    X = np.random.random((10,2))
+    assert_raises(ValueError, acovf, X)
 
 if __name__=="__main__":
     import nose

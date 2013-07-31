@@ -261,14 +261,17 @@ def _getnames(self, yname=None, xname=None):
     '''extract names from model or construct names
     '''
     if yname is None:
-        try:
+        if hasattr(self.model, 'endog_names') and (
+               not self.model.endog_names is None):
             yname = self.model.endog_names
-        except AttributeError:
+        else:
             yname = 'y'
+
     if xname is None:
-        try:
+        if hasattr(self.model, 'exog_names') and (
+               not self.model.exog_names is None):
             xname = self.model.exog_names
-        except AttributeError:
+        else:
             xname = ['var_%d' % i for i in range(len(self.params))]
 
     return yname, xname
@@ -325,7 +328,7 @@ def summary_top(results, title=None, gleft=None, gright=None, yname=None, xname=
         gen_left = [('Dep. Variable:', None),
                     ('Model type:', None),
                     ('Date:', None),
-                    ('No. Observations:', None)
+                    ('No. Observations:', None),
                     ('Df model:', None),
                     ('Df resid:', None)]
 
@@ -512,8 +515,8 @@ def summary_params_2d(result, extras=None, endog_names=None, exog_names=None,
 
     This allows interleaving of parameters with bse and/or tvalues
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     result : result instance
         the result instance with params and attributes in extras
     extras : list of strings
@@ -574,13 +577,13 @@ def summary_params_2d(result, extras=None, endog_names=None, exog_names=None,
                              txt_fmt = txt_fmt)
 
 
-def summary_params_2dflat(result, endog_names=None, exog_names=None, alpha=0.95,
+def summary_params_2dflat(result, endog_names=None, exog_names=None, alpha=0.05,
                           use_t=True, keep_headers=True, endog_cols=False):
                           #skip_headers2=True):
     '''summary table for parameters that are 2d, e.g. multi-equation models
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     result : result instance
         the result instance with params, bse, tvalues and conf_int
     endog_names : None or list of strings
@@ -647,7 +650,7 @@ def summary_params_2dflat(result, endog_names=None, exog_names=None, alpha=0.95,
 #            skiph = False
         skiph = False
         tble = summary_params(restup, yname=endog_names[eq],
-                              xname=exog_names, alpha=.05, use_t=use_t,
+                              xname=exog_names, alpha=alpha, use_t=use_t,
                               skip_header=skiph)
 
         tables.append(tble)
@@ -667,8 +670,8 @@ def table_extend(tables, keep_headers=True):
     This function returns the merged table as a deepcopy, in contrast to the
     SimpleTable extend method.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     tables : list of SimpleTable instances
     keep_headers : bool
         If true, then all headers are kept. If falls, then the headers of

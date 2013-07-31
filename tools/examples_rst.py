@@ -22,7 +22,10 @@ exclude_list = ['run_all.py',
                 # these need to be cleaned up
                 'example_ols_tftest.py',
                 'example_glsar.py',
-                'example_ols_table.py']
+                'example_ols_table.py',
+                #not finished yet
+                'example_arima.py',
+                'try_wls.py']
 
 file_path = os.path.dirname(__file__)
 docs_rst_dir = os.path.realpath(os.path.join(file_path,
@@ -131,7 +134,8 @@ def restify(example_file, filehash, fname):
     except IOError as err:
         raise IOError(err.message % fname)
     write_file(rst_file, write_filename)
-    hash_funcs.update_hash_dict(filehash, fname)
+    if filehash is not None:
+        hash_funcs.update_hash_dict(filehash, fname)
 
 if __name__ == "__main__":
     sys.path.insert(0, example_dir)
@@ -143,10 +147,13 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1: # given a file,files to process, no help flag yet
         for example_file in sys.argv[1:]:
-            restify(example_file)
+            whole_file = open(example_file, 'r').read()
+            restify(whole_file, None, example_file)
 
     else: # process the whole directory
         for root, dirnames, filenames in os.walk(example_dir):
+            if 'notebooks' in root:
+                continue
             for example in filenames:
                 example_file = os.path.join(root, example)
                 whole_file = open(example_file, 'r').read()

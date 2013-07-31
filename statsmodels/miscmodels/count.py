@@ -63,8 +63,8 @@ class NonlinearDeltaCov(object):
         if params is None:
             params = self.params
         kwds.setdefault('epsilon', 1e-4)
-        from statsmodels.sandbox.regression.numdiff import approx_fprime1
-        return approx_fprime1(params, self.fun, **kwds)
+        from statsmodels.tools.numdiff import approx_fprime
+        return approx_fprime(params, self.fun, **kwds)
 
     def cov(self):
         g = self.grad()
@@ -145,7 +145,7 @@ class PoissonOffsetGMLE(GenericLikelihoodModel):
 
     '''
 
-    def __init__(self, endog, exog=None, offset=None, **kwds):
+    def __init__(self, endog, exog=None, offset=None, missing='none', **kwds):
         # let them be none in case user wants to use inheritance
         if not offset is None:
             if offset.ndim == 1:
@@ -153,7 +153,8 @@ class PoissonOffsetGMLE(GenericLikelihoodModel):
             self.offset = offset.ravel()
         else:
             self.offset = 0.
-        super(PoissonOffsetGMLE, self).__init__(endog, exog, **kwds)
+        super(PoissonOffsetGMLE, self).__init__(endog, exog, missing=missing,
+                **kwds)
 
 #this was added temporarily for bug-hunting, but shouldn't be needed
 #    def loglike(self, params):
@@ -198,22 +199,27 @@ class PoissonZiGMLE(GenericLikelihoodModel):
 
     '''
 
-    def __init__(self, endog, exog=None, offset=None, **kwds):
+    def __init__(self, endog, exog=None, offset=None, missing='none', **kwds):
         # let them be none in case user wants to use inheritance
 
-        super(PoissonZiGMLE, self).__init__(endog, exog, **kwds)
+        super(PoissonZiGMLE, self).__init__(endog, exog, missing=missing,
+                **kwds)
         if not offset is None:
             if offset.ndim == 1:
                 offset = offset[:,None] #need column
             self.offset = offset.ravel()  #which way?
         else:
             self.offset = 0.
+
+        #TODO: it's not standard pattern to use default exog
         if exog is None:
             self.exog = np.ones((self.nobs,1))
         self.nparams = self.exog.shape[1]
         #what's the shape in regression for exog if only constant
         self.start_params = np.hstack((np.ones(self.nparams), 0))
         self.cloneattr = ['start_params']
+        #needed for t_test and summary
+        self.exog_names.append('zi')
 
 
     # original copied from discretemod.Poisson
@@ -254,7 +260,7 @@ if __name__ == '__main__':
     nobs = 1000
     rvs = np.random.randn(nobs,6)
     data_exog = rvs
-    data_exog = sm.add_constant(data_exog)
+    data_exog = sm.add_constant(data_exog, prepend=False)
     xbeta = 1 + 0.1*rvs.sum(1)
     data_endog = np.random.poisson(np.exp(xbeta))
     #print data_endog
