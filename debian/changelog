@@ -1,3 +1,11 @@
+statsmodels (0.4.2+git1962-g13bbf88-1) UNRELEASED; urgency=low
+
+  * New upstream snapshot from v0.4.3-1962-g13bbf88 at v0.4.3-1962-
+    g13bbf88
+    - depends on patsy
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 31 Jul 2013 11:15:19 -0400
+
 statsmodels (0.4.2-1) unstable; urgency=low
 
   * Fresh upstream release addressing FTBFS across big-endian architectures.
