@@ -59,12 +59,12 @@ override_dh_auto_build:
 	echo "backend : Agg" >| $(MPLCONFIGDIR)/matplotlibrc
 
 
-doc-stamp:
+doc-stamp: python-install$(PYVER)
 	: # I: Generate documentation
 	: # Build Documentation -- assure existence of build/html for nodoc
 	mkdir -p build/html
 ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
-	PYTHONPATH=$(CURDIR)$(IPYTHONPATH) \
+	PYTHONPATH=`/bin/ls -d $(CURDIR)/$(PACKAGE_ROOT_DIR)/usr/lib/python$(PYVER)/*/`:$(CURDIR)$(IPYTHONPATH) \
 	 $(MAKE) -C docs html
 	mv docs/build/* build/
 	rm -rf docs/source/generated/
