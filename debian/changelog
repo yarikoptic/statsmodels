@@ -3,6 +3,14 @@ statsmodels (0.4.2+git1962-g13bbf88-1) UNRELEASED; urgency=low
   * New upstream snapshot from v0.4.3-1962-g13bbf88 at v0.4.3-1962-
     g13bbf88
     - depends on patsy
+  * debian/control
+    - requires ipython-notebook for building documentation
+      (Build-Depends adjusted)
+    - build for Python >= 2.7 due to absent python 2.6 build of pandas
+      for wheezy
+    - boosted policy to 3.9.4 (no further changes)
+  * debian/copyright
+    - years adjusted
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 31 Jul 2013 11:15:19 -0400
 

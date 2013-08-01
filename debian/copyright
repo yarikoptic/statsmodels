@@ -6,7 +6,7 @@ Source: http://github.com/statsmodels/statsmodels
 Files: *
 Copyright: 2006, Jonathan E. Taylor
            2006-2008, Scipy Developers.
-           2009-2012, Statsmodels Developers.
+           2009-2013, Statsmodels Developers.
 License: BSD-3
 
 Files: statsmodels/sandbox/tsa/diffusion2.py
@@ -82,7 +82,7 @@ Copyright: 2007, Joe Presbrey <presbrey@mit.edu>
 License: MIT and BSD-3
 
 Files: debian/*
-Copyright: 2010-2011, Yaroslav Halchenko <debian@onerussian.com>
+Copyright: 2010-2013, Yaroslav Halchenko <debian@onerussian.com>
 License: BSD-3
 
 License: BSD-3
