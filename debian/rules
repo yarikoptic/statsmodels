@@ -26,7 +26,7 @@ export OPT+=-g -O0
 endif
 
 %:
-	dh  $@
+	dh  $@ --with python2
 
 
 cythonize:
@@ -118,7 +118,7 @@ override_dh_installdocs:
 
 
 ## move binary libraries into -lib
-override_dh_pysupport:
+override_dh_python2:
 	: # Move platform-specific libraries into -lib
 	for lib in $$(find $(PACKAGE_ROOT_DIR)/usr -name '*.so'); do \
 	   sdir=$$(dirname $$lib) ; \
@@ -138,7 +138,7 @@ override_dh_pysupport:
 		mkdir -p $$skbd_; \
 		mv $$skd $$skbd_; \
 	done
-	dh_pysupport
+	dh_python2
 
 # We build documentation only for -indep
 binary-indep: doc-stamp
