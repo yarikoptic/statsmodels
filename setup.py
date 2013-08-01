@@ -56,11 +56,10 @@ else:
 
 curdir = os.path.abspath(os.path.dirname(__file__))
 README = open(pjoin(curdir, "README.txt")).read()
-CHANGES = open(pjoin(curdir, "CHANGES.txt")).read()
 
 DISTNAME = 'statsmodels'
 DESCRIPTION = 'Statistical computations and models for use with SciPy'
-LONG_DESCRIPTION = README + '\n\n' + CHANGES
+LONG_DESCRIPTION = README
 MAINTAINER = 'Skipper Seabold, Josef Perktold'
 MAINTAINER_EMAIL ='pystatsmodels@googlegroups.com'
 URL = 'http://statsmodels.sourceforge.net/'
@@ -152,7 +151,7 @@ def check_dependency_versions(min_versions):
 MAJ = 0
 MIN = 5
 REV = 0
-ISRELEASED = False
+ISRELEASED = True
 VERSION = '%d.%d.%d' % (MAJ,MIN,REV)
 
 classifiers = [ 'Development Status :: 4 - Beta',
