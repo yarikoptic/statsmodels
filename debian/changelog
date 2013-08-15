@@ -1,4 +1,10 @@
-statsmodels (0.5.0~rc1-1) experimental; urgency=low
+statsmodels (0.5.0-1) unstable; urgency=low
+
+  * Fresh upstream release
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 14 Aug 2013 20:32:10 -0400
+
+statsmodels (0.5.0~rc1-1) UNRELEASED; urgency=low
 
   * New upstream snapshot from v0.4.3-1962-g13bbf88 at v0.4.3-1962-
     g13bbf88
