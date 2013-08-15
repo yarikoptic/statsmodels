@@ -2,10 +2,10 @@ statsmodels (0.5.0-1) unstable; urgency=low
 
   * Fresh upstream release
   * debian/rules
-    - assure having $HOME before dh_auto_clean call to avoid crash of
-      matplotlib upon clean
+    - assure having $HOME for clean and build operations to avoid crash of
+      matplotlib
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 14 Aug 2013 21:32:30 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 15 Aug 2013 15:36:09 -0400
 
 statsmodels (0.5.0~rc1-1) UNRELEASED; urgency=low
 

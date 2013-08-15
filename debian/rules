@@ -51,9 +51,14 @@ override_dh_auto_test:
 	: # overriden since testing happens against installed version across
 	: # all supported python versions
 
+# To guarantee HOME existence with mpl 1.3.0
+# See https://github.com/matplotlib/matplotlib/issues/2300
+#     http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=719384
+$(HOME):
+	mkdir "$@"
 
 # Build docs during build
-override_dh_auto_build:
+override_dh_auto_build: $(HOME)
 	dh_auto_build
 	: # Hardcode backend to Agg to avoid doc build and tests failures
 	echo "backend : Agg" >| $(MPLCONFIGDIR)/matplotlibrc
@@ -71,8 +76,7 @@ ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
 endif
 	touch $@
 
-override_dh_auto_clean:
-	mkdir -p $$HOME
+override_dh_auto_clean: $(HOME)
 	dh_auto_clean
 
 override_dh_clean:
