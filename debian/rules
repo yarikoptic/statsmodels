@@ -71,6 +71,9 @@ ifeq (,$(filter nodoc,$(DEB_BUILD_OPTIONS)))
 endif
 	touch $@
 
+override_dh_auto_clean:
+	mkdir -p $$HOME
+	dh_auto_clean
 
 override_dh_clean:
 	dh_clean
