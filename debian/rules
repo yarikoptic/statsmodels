@@ -16,7 +16,7 @@ UVER := $(shell LC_ALL=C dpkg-parsechangelog | awk '/^Version:/{print $$2;}' | s
 CYTHONVER := $(shell dpkg -l cython | awk '/^ii/{print $$3;}' || echo 0)
 MPLVER := $(shell dpkg -l python-matplotlib | awk '/^ii/{print $$3;}' || echo 0)
 IPYTHONVER := $(shell ipython -V || echo 0) # 0.12 is needed to build docs, otherwise use IPython01x
-IPYTHONPATH := $(shell dpkg --compare-versions $(IPYTHONVER) lt 0.12 \
+IPYTHONPATH := $(shell dpkg --compare-versions $(IPYTHONVER) lt 0.13 \
 				 && echo ":/usr/lib/python$(PYVER)/dist-packages/IPython01X" || echo '')
 
 MIN_CYTHONVER = 0.15.1

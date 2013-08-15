@@ -12,7 +12,7 @@ Build-Depends: debhelper (>= 7.0.50~),
                python-sphinx (>= 1.0.6),
                python-pandas,
                python-joblib,
-               ipython-notebook (>= 0.12) | ipython01x,
+               ipython-notebook (>= 0.13.1) | ipython01x,
                cython,
                python-patsy,
 Standards-Version: 3.9.4

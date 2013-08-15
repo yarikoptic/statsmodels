@@ -4,8 +4,10 @@ statsmodels (0.5.0-1) unstable; urgency=low
   * debian/rules
     - assure having $HOME for clean and build operations to avoid crash of
       matplotlib
+  * debian/control, debian/rules
+    - boost required ipython to 0.13.1 for building documentation
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 15 Aug 2013 15:36:09 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 15 Aug 2013 15:40:38 -0400
 
 statsmodels (0.5.0~rc1-1) UNRELEASED; urgency=low
 
