@@ -15,6 +15,7 @@ Build-Depends: debhelper (>= 7.0.50~),
                ipython-notebook (>= 0.13.1) | ipython01x, python-zmq,
                cython,
                python-patsy,
+               python-cvxopt,
 Standards-Version: 3.9.4
 X-Python-Version: >= 2.7
 Homepage: http://statsmodels.sourceforge.net/
@@ -32,6 +33,7 @@ Recommends: python-pandas,
             python-matplotlib,
             python-nose,
             python-joblib,
+            python-cvxopt,
 Provides: ${python:Provides}
 Conflicts: python-scikits-statsmodels, python-scikits.statsmodels (<< 0.4)
 Replaces: python-scikits-statsmodels, python-scikits.statsmodels (<< 0.4)

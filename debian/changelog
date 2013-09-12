@@ -1,3 +1,10 @@
+statsmodels (0.5.0-2) UNRELEASED; urgency=low
+
+  * debian/control
+    - python-cvxopt added to Build-Depends (testing) and Recommends
+
+ --
+
 statsmodels (0.5.0-1) unstable; urgency=low
 
   * Fresh upstream release
