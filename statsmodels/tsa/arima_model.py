@@ -120,7 +120,10 @@ _predict = """
             want out of sample prediction.
         exog : array-like, optional
             If the model is an ARMAX and out-of-sample forecasting is
-            requested, exog must be given.
+            requested, exog must be given. Note that you'll need to pass
+            `k_ar` additional lags for any exogenous variables. E.g., if you
+            fit an ARMAX(2, q) model and want to predict 5 steps, you need 7
+            observations to do this.
         dynamic : bool, optional
             The `dynamic` keyword affects in-sample prediction. If dynamic
             is False, then the in-sample lagged values are used for
@@ -203,14 +206,27 @@ def _get_predict_out_of_sample(endog, p, q, k_trend, k_exog, start, errors,
         if k_exog > 0:
             #TODO: technically should only hold for MLE not
             # conditional model. See #274.
+            # ensure 2-d for conformability
+            if np.ndim(exog) == 1 and k_exog == 1:
+                # have a 1d series of observations -> 2d
+                exog = exog[:, None]
+            elif np.ndim(exog) == 1:
+                # should have a 1d row of exog -> 2d
+                if len(exog) != k_exog:
+                    raise ValueError("1d exog given and len(exog) != k_exog")
+                exog = exog[None, :]
             X = lagmat(np.dot(exog, exparams), p, original='in', trim='both')
             mu = trendparam * (1 - arparams.sum())
             # arparams were reversed in unpack for ease later
             mu = mu + (np.r_[1, -arparams[::-1]]*X).sum(1)[:,None]
-
         else:
             mu = trendparam * (1 - arparams.sum())
             mu = np.array([mu]*steps)
+    elif k_exog > 0:
+        X = np.dot(exog, exparams)
+        #NOTE: you shouldn't have to give in-sample exog!
+        X = lagmat(X, p, original='in', trim='both')
+        mu = (np.r_[1, -arparams[::-1]]*X).sum(1)[:,None]
     else:
         mu = np.zeros(steps)
 
@@ -333,6 +349,10 @@ def _make_arma_exog(endog, exog, trend):
         k_trend = 0
     return k_trend, exog
 
+def _check_estimable(nobs, n_params):
+    if nobs <= n_params:
+        raise ValueError("Insufficient degrees of freedom to estimate")
+
 class ARMA(tsbase.TimeSeriesModel):
 
     __doc__ = tsbase._tsa_doc % {"model" : _arma_model,
@@ -348,6 +368,7 @@ class ARMA(tsbase.TimeSeriesModel):
             warnings.warn("In the next release order will not be optional "
                     "in the model constructor.", FutureWarning)
         else:
+            _check_estimable(len(self.endog), sum(order))
             self.k_ar = k_ar = order[0]
             self.k_ma = k_ma = order[1]
             self.k_lags = k_lags = max(k_ar,k_ma+1)
@@ -396,7 +417,12 @@ class ARMA(tsbase.TimeSeriesModel):
             endog -= np.dot(exog, ols_params).squeeze()
         if q != 0:
             if p != 0:
-                armod = AR(endog).fit(ic='bic', trend='nc')
+                # make sure we don't run into small data problems in AR fit
+                nobs = len(endog)
+                maxlag = int(round(12*(nobs/100.)**(1/4.)))
+                if maxlag >= nobs:
+                    maxlag = nobs - 1
+                armod = AR(endog).fit(ic='bic', trend='nc', maxlag=maxlag)
                 arcoefs_tmp = armod.params
                 p_tmp = armod.k_ar
                 # it's possible in small samples that optimal lag-order
@@ -778,6 +804,7 @@ class ARMA(tsbase.TimeSeriesModel):
                     "This will overwrite any order given in the model "
                     "constructor.", FutureWarning)
 
+            _check_estimable(len(self.endog), sum(order))
             # get model order and constants
             self.k_ar = k_ar = int(order[0])
             self.k_ma = k_ma = int(order[1])
@@ -804,6 +831,8 @@ class ARMA(tsbase.TimeSeriesModel):
         # (re)set trend and handle exogenous variables
         # always pass original exog
         k_trend, exog = _make_arma_exog(endog, self.exog, trend)
+        # check again now that we know the trend
+        _check_estimable(len(endog), k_ar + k_ma + k_exog + k_trend)
 
         self.k_trend = k_trend
         self.exog = exog    # overwrites original exog from __init__
@@ -883,6 +912,8 @@ class ARIMA(ARMA):
         super(ARIMA, self).__init__(endog, (p,q), exog, dates, freq, missing)
         self.k_diff = d
         self.endog = np.diff(self.endog, n=d)
+        #NOTE: will check in ARMA but check again since differenced now
+        _check_estimable(len(self.endog), p+q)
         if exog is not None:
             self.exog = self.exog[d:]
         self.data.ynames = 'D.' + self.endog_names
@@ -1337,7 +1368,10 @@ class ARMAResults(tsbase.TimeSeriesModelResults):
         exog : array
             If the model is an ARMAX, you must provide out of sample
             values for the exogenous variables. This should not include
-            the constant.
+            the constant. Note that you'll need to pass `k_ar` additional
+            lags for any exogenous variables. E.g., if you fit an ARMAX(2, q)
+            model and want to predict 5 steps, you need 7 observations
+            to do this.
         alpha : float
             The confidence intervals for the forecasts are (1 - alpha) %
 
@@ -1350,6 +1384,21 @@ class ARMAResults(tsbase.TimeSeriesModelResults):
         conf_int : array
             2d array of the confidence interval for the forecast
         """
+        if exog is not None:
+            #TODO: make a convenience function for this. we're using the
+            # pattern elsewhere in the codebase
+            exog = np.asarray(exog)
+            if self.k_exog == 1 and exog.ndim == 1:
+                exog = exog[:,None]
+            elif exog.ndim == 1:
+                if len(exog) != self.k_exog:
+                    raise ValueError("1d exog given and len(exog) != k_exog")
+                exog = exog[None, :]
+            if exog.shape[0] != steps:
+                raise ValueError("new exog needed for each step")
+            # prepend in-sample exog observations
+            exog = np.vstack((self.model.exog[-self.k_ar:, self.k_trend:],
+                              exog))
 
         arparams = self.arparams
         maparams = self.maparams
@@ -1597,6 +1646,14 @@ class ARIMAResults(ARMAResults):
         Prediction is done in the levels of the original endogenous variable.
         If you would like prediction of differences in levels use `predict`.
         """
+        if exog is not None:
+            if self.k_exog == 1 and exog.ndim == 1:
+                exog = exog[:,None]
+            if exog.shape[0] != steps:
+                raise ValueError("new exog needed for each step")
+            # prepend in-sample exog observations
+            exog = np.vstack((self.model.exog[-self.k_ar:, self.k_trend:],
+                              exog))
         forecast = _arma_predict_out_of_sample(self.params, steps, self.resid,
                                         self.k_ar, self.k_ma, self.k_trend,
                                         self.k_exog, self.model.endog,
