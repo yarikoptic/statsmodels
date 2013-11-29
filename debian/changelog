@@ -1,9 +1,11 @@
-statsmodels (0.5.0-2) UNRELEASED; urgency=low
+statsmodels (0.5.0+git13-g8e07d34-1) unstable; urgency=low
 
+  * Fresh snapshot of 0.5.x maintenance branch
+    - resolved failing test causing to FTBFS (Closes: #730727)
   * debian/control
     - python-cvxopt added to Build-Depends (testing) and Recommends
 
- --
+ -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 28 Nov 2013 20:17:42 -0500
 
 statsmodels (0.5.0-1) unstable; urgency=low
 
