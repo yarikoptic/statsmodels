@@ -34,6 +34,7 @@ Recommends: python-pandas,
             python-nose,
             python-joblib,
             python-cvxopt,
+Suggests: python-statsmodels-doc,
 Provides: ${python:Provides}
 Conflicts: python-scikits-statsmodels, python-scikits.statsmodels (<< 0.4)
 Replaces: python-scikits-statsmodels, python-scikits.statsmodels (<< 0.4)

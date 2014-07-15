@@ -1,3 +1,14 @@
+statsmodels (0.5.0+git13-g8e07d34-2) unstable; urgency=medium
+
+  * debian/patches
+    - changeset_ee75d978ec4c46b506b5429d4f65fdf38866ec4d.diff
+      to resolve FTBFS by using packaged ipython provided
+      extensions (Closes: #753232)
+  * debian/control
+    - suggest -doc package (Closes: #740348)
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 15 Jul 2014 11:27:40 -0400
+
 statsmodels (0.5.0+git13-g8e07d34-1) unstable; urgency=low
 
   * Fresh snapshot of 0.5.x maintenance branch
