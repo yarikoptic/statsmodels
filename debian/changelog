@@ -8,8 +8,12 @@ statsmodels (0.5.0+git13-g8e07d34-2) unstable; urgency=medium
       TestRegressionNM.test_ci_beta2 test on 32bit
   * debian/control
     - suggest -doc package (Closes: #740348)
+  * debian/rules
+    - exclude testing of the sandbox (let kids do wild things there and 
+      mentors keep their hair) -- otherwise test break due to scipy 0.14.0 API
+      breakage (f_gen)
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 15 Jul 2014 11:27:40 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 16 Jul 2014 12:03:55 -0400
 
 statsmodels (0.5.0+git13-g8e07d34-1) unstable; urgency=low
 

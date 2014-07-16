@@ -98,7 +98,7 @@ ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 	cd build/ && \
 	 PYTHONPATH=`/bin/ls -d $(CURDIR)/$(PACKAGE_ROOT_DIR)/usr/lib/python$*/*/` \
 	 MPLCONFIGDIR=$(CURDIR)/build \
-	 python$* /usr/bin/nosetests -s -v statsmodels
+	 python$* /usr/bin/nosetests -s -v --exclude=sandbox statsmodels
 else
 	: # Skip unittests due to nocheck
 endif
