@@ -1,3 +1,14 @@
+statsmodels (0.5.0+git1189-g48f7a21-1) experimental; urgency=medium
+
+  * Building current upstream snapshot to verify correct operation across
+    releases/architectures
+  * debian/patches
+    - changeset_ee75d978ec4c46b506b5429d4f65fdf38866ec4d.diff redone into
+      deb_use_internal_ipythonsphinx_extensions to facilate building
+      documentation on older systems
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 29 Jul 2014 11:05:02 -0400
+
 statsmodels (0.5.0+git13-g8e07d34-2) unstable; urgency=medium
 
   * debian/patches
