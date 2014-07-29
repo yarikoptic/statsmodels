@@ -6,6 +6,8 @@ statsmodels (0.5.0+git1189-g48f7a21-1) experimental; urgency=medium
     - changeset_ee75d978ec4c46b506b5429d4f65fdf38866ec4d.diff redone into
       deb_use_internal_ipythonsphinx_extensions to facilate building
       documentation on older systems
+  * debian/rules
+    - clean up cythonize.dat
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 29 Jul 2014 11:05:02 -0400
 

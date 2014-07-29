@@ -78,6 +78,7 @@ endif
 
 override_dh_auto_clean: $(HOME)
 	dh_auto_clean
+	-rm -f cythonize.dat
 
 override_dh_clean:
 	dh_clean
