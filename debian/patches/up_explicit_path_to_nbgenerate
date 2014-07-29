@@ -1,0 +1,19 @@
+--- a/docs/Makefile
++++ b/docs/Makefile
+@@ -53,14 +53,12 @@ cleancache:
+ 
+ notebooks:
+ 	@echo "Generating notebooks from examples/notebooks folder" 
+-	$(TOOLSPATH)$(NOTEBOOKBUILD)
++	$(TOOLSPATH)$(NOTEBOOKBUILD) $$PWD/../examples/notebooks
+ 
+-html:
++html: notebooks
+ 	# generate the examples rst files
+ 	@echo "Generating reST from examples folder"
+ 	#$(TOOLSPATH)$(EXAMPLEBUILD)
+-	@echo "Generating notebooks from examples/notebooks folder" 
+-	$(TOOLSPATH)$(NOTEBOOKBUILD)
+ 	@echo "Generating datasets from installed statsmodels.datasets"
+ 	$(TOOLSPATH)$(DATASETBUILD)
+ 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
