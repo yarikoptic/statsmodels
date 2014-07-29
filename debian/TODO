@@ -1,0 +1,12 @@
+W: statsmodels source: out-of-date-standards-version 3.9.4 (current is 3.9.5)
+E: python-statsmodels: privacy-breach-statistics-website usr/lib/python2.7/dist-packages/statsmodels/datasets/scotland/src/scotland_devolution.html
+W: python-statsmodels: executable-not-elf-or-script usr/lib/python2.7/dist-packages/statsmodels/datasets/cancer/cancer.csv
+W: python-statsmodels-doc: embedded-javascript-library usr/share/doc/python-statsmodels-doc/html/_static/underscore.js
+W: python-scikits.statsmodels: empty-binary-package
+
+use shipped along copies of ipython sphinx extensions whenever n/a from system ones
+Extension error:
+Could not import extension IPython.sphinxext.ipython_console_highlighting (exception: No module named sphinxext.ipython_console_highlighting)
+WARNING: Not building inheritance diagrams on sphinx 1.1.3. See https://github.com/statsmodels/statsmodels/issues/1002
+make[1]: *** [html] Error 1
+
