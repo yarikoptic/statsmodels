@@ -15,7 +15,7 @@ Warning: The algorithm does not converge.  Roundoff error is detected
   the best which can be obtained.
 array(2981.0032380193438)
 """
-
+from __future__ import print_function
 import warnings # for silencing, see above...
 import numpy as np
 from numpy.testing import assert_almost_equal
@@ -24,7 +24,8 @@ from statsmodels.sandbox.distributions.extras import (
     lognormalg, squarenormalg, absnormalg, negsquarenormalg, squaretg)
 
 
-#some patches to scipy.stats.distributions so tests work and pass
+# some patches to scipy.stats.distributions so tests work and pass
+# this should be necessary only for older scipy
 
 #patch frozen distributions with a name
 stats.distributions.rv_frozen.name = property(lambda self: self.dist.name)
@@ -45,7 +46,8 @@ def f_stats(self, dfn, dfd):
     g2 = where(v2 > 8, g2, nan)
     return mu, mu2, g1, g2
 
-stats.distributions.f_gen._stats = f_stats
+#stats.distributions.f_gen._stats = f_stats
+stats.f.__class__._stats = f_stats
 
 #correct kurtosis by subtracting 3 (Fisher)
 #after this it matches halfnorm for arg close to zero
@@ -69,7 +71,8 @@ def foldnorm_stats(self, c):
     g2 -= 3.
     return mu, mu2, g1, g2
 
-stats.distributions.foldnorm_gen._stats = foldnorm_stats
+#stats.distributions.foldnorm_gen._stats = foldnorm_stats
+stats.foldnorm.__class__._stats = foldnorm_stats
 
 
 #-----------------------------
@@ -165,11 +168,11 @@ if __name__ == '__main__':
 
     debug = 0
     if debug:
-        print negsquarenormalg.ppf([0.1,0.5,0.9])
-        print stats.chi2.ppf([0.1,0.5,0.9],1)
-        print negsquarenormalg.a
-        print negsquarenormalg.b
+        print(negsquarenormalg.ppf([0.1,0.5,0.9]))
+        print(stats.chi2.ppf([0.1,0.5,0.9],1))
+        print(negsquarenormalg.a)
+        print(negsquarenormalg.b)
 
-        print absnormalg.stats( moments='mvsk')
-        print stats.foldnorm(1e-10).stats( moments='mvsk')
-        print stats.halfnorm.stats( moments='mvsk')
+        print(absnormalg.stats( moments='mvsk'))
+        print(stats.foldnorm(1e-10).stats( moments='mvsk'))
+        print(stats.halfnorm.stats( moments='mvsk'))

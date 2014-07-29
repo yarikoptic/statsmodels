@@ -29,7 +29,8 @@ Detailed examples can be found here:
 .. toctree::
    :maxdepth: 1
 
-   examples/generated/example_glm
+   examples/notebooks/generated/glm
+   examples/notebooks/generated/glm_formula
 
 Technical Documentation
 -----------------------
@@ -64,6 +65,8 @@ Results Class
 
    GLMResults
 
+.. _families:
+
 Families
 ^^^^^^^^
 
@@ -83,6 +86,8 @@ The distribution families currently implemented are
    NegativeBinomial
    Poisson
 
+
+.. _links:
 
 Link Functions
 ^^^^^^^^^^^^^^

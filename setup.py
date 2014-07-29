@@ -8,7 +8,7 @@ developers [1], which was in turn based on work done in pyzmq [2] and lxml [3].
 """
 
 import os
-from os.path import splitext, basename, join as pjoin
+from os.path import relpath, join as pjoin
 import sys
 import subprocess
 import re
@@ -18,12 +18,6 @@ import re
 # certain easy_install versions
 os.environ["MPLCONFIGDIR"] = "."
 
-# may need to work around setuptools bug by providing a fake Pyrex
-try:
-    import Cython
-    sys.path.insert(0, pjoin(os.path.dirname(__file__), "fake_pyrex"))
-except ImportError:
-    pass
 
 # try bootstrapping setuptools if it doesn't exist
 try:
@@ -42,22 +36,19 @@ except ImportError:
 
 setuptools_kwargs = {}
 if sys.version_info[0] >= 3:
-    setuptools_kwargs = {'use_2to3': True,
-                         'zip_safe': False,
-                         #'use_2to3_exclude_fixers': [],
-                         }
+    setuptools_kwargs = {'zip_safe': False}
+
     if not _have_setuptools:
         sys.exit("need setuptools/distribute for Py3k"
                  "\n$ pip install distribute")
-
 else:
     setuptools_kwargs = {
         'install_requires': [],
         'zip_safe': False,
     }
 
-    if not _have_setuptools:
-        setuptools_kwargs = {}
+if not _have_setuptools:
+    setuptools_kwargs = {}
 
 curdir = os.path.abspath(os.path.dirname(__file__))
 README = open(pjoin(curdir, "README.txt")).read()
@@ -76,13 +67,6 @@ from distutils.command.build import build
 from distutils.command.sdist import sdist
 from distutils.command.build_ext import build_ext as _build_ext
 
-try:
-    from Cython.Distutils import build_ext as _build_ext
-    # from Cython.Distutils import Extension # to get pyrex debugging symbols
-    cython = True
-except ImportError:
-    cython = False
-
 
 class build_ext(_build_ext):
     def build_extensions(self):
@@ -95,8 +79,20 @@ class build_ext(_build_ext):
         _build_ext.build_extensions(self)
 
 
+def generate_cython():
+    cwd = os.path.abspath(os.path.dirname(__file__))
+    print("Cythonizing sources")
+    p = subprocess.call([sys.executable,
+                          os.path.join(cwd, 'tools', 'cythonize.py'),
+                          'statsmodels'],
+                         cwd=cwd)
+    if p != 0:
+        raise RuntimeError("Running cythonize failed!")
+
+
 def strip_rc(version):
     return re.sub(r"rc\d+$", "", version)
+
 
 def check_dependency_versions(min_versions):
     """
@@ -118,7 +114,7 @@ def check_dependency_versions(min_versions):
         except ImportError:
             raise ImportError("statsmodels requires scipy")
     try:
-        from pandas.version import version as pversion
+        from pandas.version import short_version as pversion
     except ImportError:
         raise ImportError("statsmodels requires pandas")
     try:
@@ -137,10 +133,7 @@ def check_dependency_versions(min_versions):
         raise ImportError("Scipy version is %s. Requires >= %s" %
                 (spversion, min_versions['scipy']))
     try:
-        #NOTE: not sure how robust this regex is but it at least allows
-        # double digit version numbering
-        pversion = re.match("\d*\.\d*\.\d*", pversion).group()
-        assert StrictVersion(pversion) >= min_versions['pandas']
+        assert StrictVersion(strip_rc(pversion)) >= min_versions['pandas']
     except AssertionError:
         raise ImportError("Pandas version is %s. Requires >= %s" %
                 (pversion, min_versions['pandas']))
@@ -154,9 +147,9 @@ def check_dependency_versions(min_versions):
 
 
 MAJ = 0
-MIN = 5
+MIN = 6
 REV = 0
-ISRELEASED = True
+ISRELEASED = False
 VERSION = '%d.%d.%d' % (MAJ,MIN,REV)
 
 classifiers = [ 'Development Status :: 4 - Beta',
@@ -234,12 +227,6 @@ def write_version_py(filename=pjoin(curdir, 'statsmodels/version.py')):
         finally:
             a.close()
 
-try:
-    from distutils.command.build_py import build_py_2to3 as build_py
-except ImportError:
-    # 2.x
-    from distutils.command.build_py import build_py
-
 
 class CleanCommand(Command):
     """Custom distutils command to clean the .so and .pyc files."""
@@ -286,36 +273,6 @@ class CleanCommand(Command):
                 pass
 
 
-class CheckSDist(sdist):
-    """Custom sdist that ensures Cython has compiled all pyx files to c."""
-
-    _pyxfiles = ['statsmodels/nonparametric/linbin.pyx',
-                 'statsmodels/nonparametric/_smoothers_lowess.pyx',
-                 'statsmodels/tsa/kalmanf/kalman_loglike.pyx']
-
-    def initialize_options(self):
-        sdist.initialize_options(self)
-
-        '''
-        self._pyxfiles = []
-        for root, dirs, files in os.walk('statsmodels'):
-            for f in files:
-                if f.endswith('.pyx'):
-                    self._pyxfiles.append(pjoin(root, f))
-        '''
-
-    def run(self):
-        if 'cython' in cmdclass:
-            self.run_command('cython')
-        else:
-            for pyxfile in self._pyxfiles:
-                cfile = pyxfile[:-3] + 'c'
-                msg = "C-source file '%s' not found." % (cfile) +\
-                    " Run 'setup.py cython' before sdist."
-                assert os.path.isfile(cfile), msg
-        sdist.run(self)
-
-
 class CheckingBuildExt(build_ext):
     """Subclass build_ext to get clearer report if Cython is necessary."""
 
@@ -331,14 +288,6 @@ class CheckingBuildExt(build_ext):
     def build_extensions(self):
         self.check_cython_extensions(self.extensions)
         build_ext.build_extensions(self)
-
-
-class CythonCommand(build_ext):
-    """Custom distutils command subclassed from Cython.Distutils.build_ext
-    to compile pyx->c, and stop there. All this does is override the
-    C-compile method build_extension() with a no-op."""
-    def build_extension(self, ext):
-        pass
 
 
 class DummyBuildSrc(Command):
@@ -357,79 +306,45 @@ class DummyBuildSrc(Command):
 
 
 cmdclass = {'clean': CleanCommand,
-            'build': build,
-            'sdist': CheckSDist}
+            'build': build}
 
-if cython:
-    suffix = ".pyx"
-    cmdclass["build_ext"] = CheckingBuildExt
-    cmdclass["cython"] = CythonCommand
-else:
-    suffix = ".c"
-    cmdclass["build_src"] = DummyBuildSrc
-    cmdclass["build_ext"] = CheckingBuildExt
+cmdclass["build_src"] = DummyBuildSrc
+cmdclass["build_ext"] = CheckingBuildExt
 
-lib_depends = []
-
-def srcpath(name=None, suffix='.pyx', subdir='src'):
-    return pjoin('statsmodels', subdir, name + suffix)
-
-if suffix == ".pyx":
-    lib_depends = [srcpath(f, suffix=".pyx") for f in lib_depends]
-else:
-    lib_depends = []
-
-common_include = []
 
 # some linux distros require it
-libraries = ['m'] if 'win32' not in sys.platform else []
+#NOTE: we are not currently using this but add it to Extension, if needed.
+# libraries = ['m'] if 'win32' not in sys.platform else []
 
 ext_data = dict(
-        kalman_loglike = {"pyxfile" : "tsa/kalmanf/kalman_loglike",
-                  "depends" : [],
+        kalman_loglike = {"name" : "statsmodels/tsa/kalmanf/kalman_loglike.c",
+                  "depends" : ["statsmodels/tsa/kalmanf/capsule.h"],
                   "sources" : []},
 
-        linbin = {"pyxfile" : "nonparametric/linbin",
+        linbin = {"name" : "statsmodels/nonparametric/linbin.c",
                  "depends" : [],
                  "sources" : []},
-        _smoothers_lowess = {"pyxfile" : "nonparametric/_smoothers_lowess",
+        _smoothers_lowess = {"name" : "statsmodels/nonparametric/_smoothers_lowess.c",
                  "depends" : [],
                  "sources" : []}
         )
 
-def pxd(name):
-    return os.path.abspath(pjoin('pandas', name + '.pxd'))
 
 extensions = []
 for name, data in ext_data.items():
-    sources = [srcpath(data['pyxfile'], suffix=suffix, subdir='')]
-    pxds = [pxd(x) for x in data.get('pxdfiles', [])]
-    destdir = ".".join(os.path.dirname(data["pyxfile"]).split("/"))
-    if suffix == '.pyx' and pxds:
-        sources.extend(pxds)
+    data['sources'] = data.get('sources', []) + [data['name']]
 
-    sources.extend(data.get('sources', []))
+    destdir = ".".join(os.path.dirname(data["name"]).split("/"))
+    data.pop('name')
 
-    include = data.get('include', common_include)
-
-    obj = Extension('statsmodels.%s.%s' % (destdir, name),
-                    sources=sources,
-                    depends=data.get('depends', []),
-                    include_dirs=include)
+    obj = Extension('%s.%s' % (destdir, name), **data)
 
     extensions.append(obj)
 
-if suffix == '.pyx' and 'setuptools' in sys.modules:
-    # undo dumb setuptools bug clobbering .pyx sources back to .c
-    for ext in extensions:
-        if ext.sources[0].endswith('.c'):
-            root, _ = os.path.splitext(ext.sources[0])
-            ext.sources[0] = root + suffix
 
 if _have_setuptools:
     setuptools_kwargs["test_suite"] = "nose.collector"
 
-from os.path import relpath
 
 def get_data_files():
     sep = os.path.sep
@@ -445,11 +360,13 @@ def get_data_files():
                                                                   "*.dta"]})
     # add all the tests and results files
     for r, ds, fs in os.walk(pjoin(curdir, "statsmodels")):
-        if r.endswith('results') and 'sandbox' not in r:
-            data_files.update({relpath(r, start=curdir).replace(sep, ".") : ["*.csv",
-                                                               "*.txt"]})
+        r_ = relpath(r, start=curdir)
+        if r_.endswith('results'):
+            data_files.update({r_.replace(sep, ".") : ["*.csv",
+                                                       "*.txt"]})
 
     return data_files
+
 
 if __name__ == "__main__":
     if os.path.exists('MANIFEST'):
@@ -465,8 +382,11 @@ if __name__ == "__main__":
         # 3.3 needs numpy 1.7+
         min_versions.update({"numpy" : "1.7.0b2"})
 
-    check_dependency_versions(min_versions)
-    write_version_py()
+    if not (len(sys.argv) >= 2 and ('--help' in sys.argv[1:] or
+            sys.argv[1] in ('--help-commands', 'egg_info', '--version',
+                            'clean'))):
+        check_dependency_versions(min_versions)
+        write_version_py()
 
     # this adds *.csv and *.dta files in datasets folders
     # and *.csv and *.txt files in test/results folders
@@ -480,18 +400,25 @@ if __name__ == "__main__":
     package_data["statsmodels.tsa.vector_ar.tests.results"].append("*.npz")
     # data files that don't follow the tests/results pattern. should fix.
     package_data.update({"statsmodels.stats.tests" : ["*.txt"]})
-    # the next two are in the sdist, but I don't manage to get them installed
-    package_data.update({"statsmodels.stats.libqstrung" :
+
+    package_data.update({"statsmodels.stats.libqsturng" :
                          ["*.r", "*.txt", "*.dat"]})
-    package_data.update({"statsmodels.stats.libqstrung.tests" :
+    package_data.update({"statsmodels.stats.libqsturng.tests" :
                          ["*.csv", "*.dat"]})
     package_data.update({"statsmodels.tsa.vector_ar.data" : ["*.dat"]})
     package_data.update({"statsmodels.tsa.vector_ar.data" : ["*.dat"]})
-    # Why are we installing this stuff?
+    # temporary, until moved:
+    package_data.update({"statsmodels.sandbox.regression.tests" :
+                         ["*.dta", "*.csv"]})
 
     #TODO: deal with this. Not sure if it ever worked for bdists
     #('docs/build/htmlhelp/statsmodelsdoc.chm',
     # 'statsmodels/statsmodelsdoc.chm')
+
+    cwd = os.path.abspath(os.path.dirname(__file__))
+    if not os.path.exists(os.path.join(cwd, 'PKG-INFO')):
+        # Generate Cython sources, unless building from source release
+        generate_cython()
 
     setup(name = DISTNAME,
           version = VERSION,
@@ -508,5 +435,5 @@ if __name__ == "__main__":
           cmdclass = cmdclass,
           packages = packages,
           package_data = package_data,
-          include_package_data=True,
+          include_package_data=False,  # True will install all files in repo
           **setuptools_kwargs)

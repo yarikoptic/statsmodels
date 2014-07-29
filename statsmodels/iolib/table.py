@@ -67,8 +67,7 @@ Potential problems for Python 3
 - Calls ``next`` instead of ``__next__``.
   The 2to3 tool should handle that no problem.
   (We will switch to the `next` function if 2.5 support is ever dropped.)
-- from __future__ import division, with_statement
-- from itertools import izip as zip
+- from __future__ import division
 - Let me know if you find other problems.
 
 :contact: alan dot isaac at gmail dot com
@@ -82,17 +81,12 @@ Potential problems for Python 3
 :change: 2010-05-02 eliminate newlines that came before and after table
 :change: 2010-05-06 add `label_cells` to `SimpleTable`
 """
-from __future__ import division, with_statement
+
+from __future__ import division
+from statsmodels.compat.python import (lmap, lrange, zip, next, iteritems, zip_longest,
+                                range)
 import logging
 
-from statsmodels.compatnp.iter_compat import zip_longest
-
-try: #plan for Python 3
-    #from itertools import izip_longest, izip as zip
-    from itertools import izip as zip
-    pass   # accommodate 2to3 tool
-except ImportError:
-    pass
 from itertools import cycle
 from collections import defaultdict
 import csv
@@ -112,7 +106,7 @@ def csv2st(csvfile, headers=False, stubs=False, title=None):
             try:
                 headers = next(reader)
             except NameError: #must be Python 2.5 or earlier
-                headers = reader.next()
+                headers = next(reader)
         elif headers is False:
             headers=()
         if stubs is True:
@@ -195,7 +189,7 @@ class SimpleTable(list):
         """
         #self._raw_data = data
         self.title = title
-        self._datatypes = datatypes or range(len(data[0]))
+        self._datatypes = datatypes or lrange(len(data[0]))
         #start with default formatting
         self._txt_fmt = default_txt_fmt.copy()
         self._latex_fmt = default_latex_fmt.copy()
@@ -223,6 +217,7 @@ class SimpleTable(list):
         rows = self._data2rows(data)  # a list of Row instances
         list.__init__(self, rows)
         self._add_headers_stubs(headers, stubs)
+        self._colwidths = dict()
     def __str__(self):
         return self.as_text()
     def __repr__(self):
@@ -283,7 +278,7 @@ class SimpleTable(list):
                 try:
                     row.insert_stub(loc, next(stubs))
                 except NameError: #Python 2.5 or earlier
-                    row.insert_stub(loc, stubs.next())
+                    row.insert_stub(loc, next(stubs))
                 except StopIteration:
                     raise ValueError('length of stubs must match table length')
     def _data2rows(self, raw_data):
@@ -301,7 +296,7 @@ class SimpleTable(list):
                 try:
                     cell.datatype = next(dtypes)
                 except NameError: #Python 2.5 or earlier
-                    cell.datatype = dtypes.next()
+                    cell.datatype = next(dtypes)
                 cell.row = newrow  #a cell knows its row
             rows.append(newrow)
         logging.debug('Exit SimpleTable.data2rows.')
@@ -309,7 +304,8 @@ class SimpleTable(list):
     def pad(self, s, width, align):
         """DEPRECATED: just use the pad function"""
         return pad(s, width, align)
-    def get_colwidths(self, output_format, **fmt_dict):
+    def _get_colwidths(self, output_format, **fmt_dict):
+        """Return list, the calculated widths of each column."""
         output_format = get_output_format(output_format)
         fmt = self.output_formats[output_format].copy()
         fmt.update(fmt_dict)
@@ -327,8 +323,24 @@ class SimpleTable(list):
         for col in zip(*self):
             maxwidth = max(len(c.format(0,output_format,**fmt)) for c in col)
             min_widths.append(maxwidth)
-        result = map(max, min_widths, request)
+        result = lmap(max, min_widths, request)
         return result
+    def get_colwidths(self, output_format, **fmt_dict):
+        """Return list, the widths of each column."""
+        call_args = [output_format]
+        for k, v in sorted(iteritems(fmt_dict)):
+            if isinstance(v, list):
+                call_args.append((k, tuple(v)))
+            elif isinstance(v, dict):
+                call_args.append((k, tuple(sorted(iteritems(v)))))
+            else:
+                call_args.append((k, v))
+        key = tuple(call_args)
+        try:
+            return self._colwidths[key]
+        except KeyError:
+            self._colwidths[key] = self._get_colwidths(output_format, **fmt_dict)
+            return self._colwidths[key]
     def _get_fmt(self, output_format, **fmt_dict):
         """Return dict, the formatting options.
         """
@@ -385,17 +397,18 @@ class SimpleTable(list):
         formatted_rows.extend( row.as_string('html', **fmt) for row in self )
         formatted_rows.append('</table>')
         return '\n'.join(formatted_rows)
-    def as_latex_tabular(self, **fmt_dict):
+    def as_latex_tabular(self, center=True, **fmt_dict):
         '''Return string, the table as a LaTeX tabular environment.
         Note: will require the booktabs package.'''
         #fetch the text format, override with fmt_dict
         fmt = self._get_fmt('latex', **fmt_dict)
-        
-        formatted_rows = ["\\begin{center}"]
-        
+
+        if center:
+            formatted_rows = ["\\begin{center}"]
+
         table_dec_above = fmt['table_dec_above'] or ''
         table_dec_below = fmt['table_dec_below'] or ''
-        
+
         prev_aligns = None
         last = None
         for row in self + [last]:
@@ -403,7 +416,7 @@ class SimpleTable(list):
                 aligns = None
             else:
                 aligns = row.get_aligns('latex', **fmt)
-            
+
             if aligns != prev_aligns:
                 # When the number/type of columns changes...
                 if prev_aligns:
@@ -424,7 +437,8 @@ class SimpleTable(list):
         if self.title:
             title = r'%%\caption{%s}' % self.title
             formatted_rows.append(title)
-        formatted_rows.append( "\\end{center}" )
+        if center:
+            formatted_rows.append( "\\end{center}" )
         return '\n'.join(formatted_rows)
         """
         if fmt_dict['strip_backslash']:
@@ -685,7 +699,7 @@ class Cell(object):
                 if isinstance( data, str ):
                     for repl in fmt["replacements"]:
                         data = data.replace( repl, fmt["replacements"][repl] )
-            
+
             dfmt = fmt.get(datatype)
             try:
                 content = dfmt % (data,)

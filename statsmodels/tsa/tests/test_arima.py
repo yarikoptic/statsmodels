@@ -1,16 +1,20 @@
+from statsmodels.compat.python import lrange, BytesIO
 import numpy as np
+from nose.tools import nottest
 from numpy.testing import (assert_almost_equal, assert_equal, assert_,
-                           assert_raises, dec)
+                           assert_raises, dec, TestCase)
 import statsmodels.sandbox.tsa.fftarma as fa
 from statsmodels.tsa.descriptivestats import TsaDescriptive
 from statsmodels.tsa.arma_mle import Arma
 from statsmodels.tsa.arima_model import ARMA, ARIMA
+from statsmodels.regression.linear_model import OLS
 from statsmodels.tsa.base.datetools import dates_from_range
-from results import results_arma, results_arima
+from .results import results_arma, results_arima
 import os
 from statsmodels.tsa.base import datetools
 from statsmodels.tsa.arima_process import arma_generate_sample
 import pandas
+from pandas.util.testing import assert_produces_warning
 try:
     from statsmodels.tsa.kalmanf import kalman_loglike
     fast_kalman = 1
@@ -34,15 +38,11 @@ cpi_predict_dates = dates_from_range('2009Q3', '2015Q4')
 sun_dates = dates_from_range('1700', '2008')
 sun_predict_dates = dates_from_range('2008', '2033')
 
-try:
-    from pandas import DatetimeIndex  # pylint: disable-msg=E0611
-    cpi_dates = DatetimeIndex(cpi_dates, freq='infer')
-    sun_dates = DatetimeIndex(sun_dates, freq='infer')
-    cpi_predict_dates = DatetimeIndex(cpi_predict_dates, freq='infer')
-    sun_predict_dates = DatetimeIndex(sun_predict_dates, freq='infer')
-except ImportError:
-    pass
-
+from pandas import DatetimeIndex  # pylint: disable-msg=E0611
+cpi_dates = DatetimeIndex(cpi_dates, freq='infer')
+sun_dates = DatetimeIndex(sun_dates, freq='infer')
+cpi_predict_dates = DatetimeIndex(cpi_predict_dates, freq='infer')
+sun_predict_dates = DatetimeIndex(sun_predict_dates, freq='infer')
 
 
 def test_compare_arma():
@@ -200,7 +200,6 @@ class Test_Y_ARMA11_NoConst(CheckArmaResultsMixin, CheckForecastMixin):
         cls.res2 = results_arma.Y_arma11()
 
     def test_pickle(self):
-        from statsmodels.compatnp.py3k import BytesIO
         fh = BytesIO()
         #test wrapped results load save pickle
         self.res1.save(fh)
@@ -217,8 +216,7 @@ class Test_Y_ARMA14_NoConst(CheckArmaResultsMixin):
         cls.res2 = results_arma.Y_arma14()
 
 #NOTE: Ok
-#can't use class decorators in 2.5....
-#@dec.slow
+@dec.slow
 class Test_Y_ARMA41_NoConst(CheckArmaResultsMixin, CheckForecastMixin):
     @classmethod
     def setupClass(cls):
@@ -265,7 +263,6 @@ class Test_Y_ARMA11_Const(CheckArmaResultsMixin, CheckForecastMixin):
                 confint) = cls.res1.forecast(10)
         cls.res2 = results_arma.Y_arma11c()
 
-#NOTE: OK
 class Test_Y_ARMA14_Const(CheckArmaResultsMixin):
     @classmethod
     def setupClass(cls):
@@ -273,8 +270,7 @@ class Test_Y_ARMA14_Const(CheckArmaResultsMixin):
         cls.res1 = ARMA(endog, order=(1,4)).fit(trend="c", disp=-1)
         cls.res2 = results_arma.Y_arma14c()
 
-#NOTE: Ok
-#@dec.slow
+@dec.slow
 class Test_Y_ARMA41_Const(CheckArmaResultsMixin, CheckForecastMixin):
     @classmethod
     def setupClass(cls):
@@ -472,7 +468,7 @@ def test_reset_trend():
     res2 = mod.fit(trend="nc", disp=-1)
     assert_equal(len(res1.params), len(res2.params)+1)
 
-#@dec.slow
+@dec.slow
 def test_start_params_bug():
     data = np.array([1368., 1187, 1090, 1439, 2362, 2783, 2869, 2512, 1804,
     1544, 1028, 869, 1737, 2055, 1947, 1618, 1196, 867, 997, 1862, 2525,
@@ -1601,11 +1597,6 @@ def test_arima_predict_q2():
 
 def test_arima_predict_pandas_nofreq():
     # this is issue 712
-    try:
-        from pandas.tseries.api import infer_freq  # pylint: disable-msg=E0611, F0401
-    except ImportError:
-        import nose
-        raise nose.SkipTest
     from pandas import DataFrame
     dates = ["2010-01-04", "2010-01-05", "2010-01-06", "2010-01-07",
              "2010-01-08", "2010-01-11", "2010-01-12", "2010-01-11",
@@ -1635,10 +1626,10 @@ def test_arima_predict_pandas_nofreq():
     assert_(predict.index.equals(data.index[3:10+1]))
 
     predict = arma.predict(start="2010-1-7", end=14)
-    assert_(predict.index.equals(pandas.Index(range(3, 15))))
+    assert_(predict.index.equals(pandas.Index(lrange(3, 15))))
 
     predict = arma.predict(start=3, end=14)
-    assert_(predict.index.equals(pandas.Index(range(3, 15))))
+    assert_(predict.index.equals(pandas.Index(lrange(3, 15))))
 
     # end can be a date if it's in the sample and on the index
     # predict dates is just a slice of the dates index then
@@ -1657,7 +1648,7 @@ def test_arima_predict_exog():
     #y = arma_generate_sample(arparams, maparams, nobs, burnin=100)
 
     ## make an exogenous trend
-    #X = np.array(range(nobs)) / 20.0
+    #X = np.array(lrange(nobs)) / 20.0
     ## add a constant
     #y += 2.5
 
@@ -1714,7 +1705,7 @@ def test_arima_no_diff():
     ma = [1, .25, .9]
     y = arma_generate_sample(ar, ma, 100)
     mod = ARIMA(y, (3, 0, 2))
-    assert_(isinstance(mod, ARMA))
+    assert_(type(mod) is ARMA)
     res = mod.fit(disp=-1)
     # smoke test just to be sure
     res.predict()
@@ -1747,7 +1738,7 @@ def test_arimax():
 
     # 2 exog
     X = dta
-    res = ARIMA(y, (2, 1, 1), X).fit(disp=-1, solver="nm", maxiter=1000,
+    res = ARIMA(y, (2, 1, 1), X).fit(disp=False, solver="nm", maxiter=1000,
                 ftol=1e-12, xtol=1e-12)
 
     # from gretl
@@ -1764,7 +1755,7 @@ def test_arimax():
     assert_almost_equal(res.model.loglike(np.array(params)), stata_llf, 6)
 
     X = dta.diff()
-    res = ARIMA(y, (2, 1, 1), X).fit(disp=-1)
+    res = ARIMA(y, (2, 1, 1), X).fit(disp=False)
 
     # gretl won't estimate this - looks like maybe a bug on their part,
     # but we can just fine, we're close to Stata's answer
@@ -1889,8 +1880,97 @@ def test_small_data():
     # in start params regression.
     res = mod.fit(trend="nc", disp=0, start_params=[.1,.1,.1,.1])
     mod = ARIMA(y, (1, 0, 2))
-    res = mod.fit(disp=0, start_params=[.1, .1, .1, .1])
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = mod.fit(disp=0, start_params=[np.mean(y), .1, .1, .1])
 
+
+class TestARMA00(TestCase):
+
+    @classmethod
+    def setup_class(cls):
+        from statsmodels.datasets.sunspots import load
+
+        sunspots = load().data['SUNACTIVITY']
+        cls.y = y = sunspots
+        cls.arma_00_model = ARMA(y, order=(0, 0))
+        cls.arma_00_res = cls.arma_00_model.fit(disp=-1)
+
+    def test_parameters(self):
+        params = self.arma_00_res.params
+        assert_almost_equal(self.y.mean(), params)
+
+    def test_predictions(self):
+        predictions = self.arma_00_res.predict()
+        assert_almost_equal(self.y.mean() * np.ones_like(predictions), predictions)
+
+    @nottest
+    def test_information_criteria(self):
+        # This test is invalid since the ICs differ due to df_model differences
+        # between OLS and ARIMA
+        res = self.arma_00_res
+        y = self.y
+        ols_res = OLS(y, np.ones_like(y)).fit(disp=-1)
+        ols_ic = np.array([ols_res.aic, ols_res.bic])
+        arma_ic = np.array([res.aic, res.bic])
+        assert_almost_equal(ols_ic, arma_ic, DECIMAL_4)
+
+    def test_arma_00_nc(self):
+        arma_00 = ARMA(self.y, order=(0, 0))
+        assert_raises(ValueError, arma_00.fit, trend='nc', disp=-1)
+
+    def test_css(self):
+        arma = ARMA(self.y, order=(0, 0))
+        fit = arma.fit(method='css', disp=-1)
+        predictions = fit.predict()
+        assert_almost_equal(self.y.mean() * np.ones_like(predictions), predictions)
+
+    def test_arima(self):
+        yi = np.cumsum(self.y)
+        arima = ARIMA(yi, order=(0, 1, 0))
+        fit = arima.fit(disp=-1)
+        assert_almost_equal(np.diff(yi).mean(), fit.params, DECIMAL_4)
+
+    def test_arma_ols(self):
+        y = self.y
+        y_lead = y[1:]
+        y_lag = y[:-1]
+        T = y_lag.shape[0]
+        X = np.hstack((np.ones((T,1)), y_lag[:,None]))
+        ols_res = OLS(y_lead, X).fit()
+        arma_res = ARMA(y_lead,order=(0,0),exog=y_lag).fit(trend='c', disp=-1)
+        assert_almost_equal(ols_res.params, arma_res.params)
+
+    def test_arma_exog_no_constant(self):
+        y = self.y
+        y_lead = y[1:]
+        y_lag = y[:-1]
+        X = y_lag[:,None]
+        ols_res = OLS(y_lead, X).fit()
+        arma_res = ARMA(y_lead,order=(0,0),exog=y_lag).fit(trend='nc', disp=-1)
+        assert_almost_equal(ols_res.params, arma_res.params)
+        pass
+
+
+def test_arima_dates_startatend():
+    # bug
+    np.random.seed(18)
+    x = pandas.TimeSeries(np.random.random(36),
+                          index=pandas.DatetimeIndex(start='1/1/1990',
+                                                     periods=36, freq='M'))
+    res = ARIMA(x, (1, 0, 0)).fit(disp=0)
+    pred = res.predict(start=len(x), end=len(x))
+    assert_(pred.index[0] == x.index.shift(1)[-1])
+    fc = res.forecast()[0]
+    assert_almost_equal(pred.values[0], fc)
+
+def test_arma_missing():
+    from statsmodels.base.data import MissingDataError
+    # bug 1343
+    y = np.random.random(40)
+    y[-1] = np.nan
+    assert_raises(MissingDataError, ARMA, y, (1, 0), missing='raise')
 
 if __name__ == "__main__":
     import nose

@@ -74,6 +74,7 @@ Descriptive Statistics and Tests
    stattools.q_stat
    stattools.grangercausalitytests
    stattools.levinson_durbin
+   stattools.arma_order_select_ic
 
 Estimation
 """"""""""
@@ -117,7 +118,7 @@ Vector Autogressive Processes (VAR)
    vector_ar.var_model.VARResults
    vector_ar.dynamic.DynamicVAR
 
-.. seealso:: :ref:`VAR documentation <var>`
+.. seealso:: tutorial :ref:`VAR documentation <var>`
 
 .. currentmodule:: statsmodels.tsa
 
@@ -137,7 +138,7 @@ estimation are available for vector autoregressive processes.
    vector_ar.var_model.FEVD
    vector_ar.dynamic.DynamicVAR
 
-.. seealso:: :ref:`VAR documentation <var>`
+.. seealso:: tutorial :ref:`VAR documentation <var>`
 
 ARMA Process
 """"""""""""
@@ -174,17 +175,18 @@ process for given lag-polynomials.
 
 .. currentmodule:: statsmodels.tsa
 
-Other Time Series Filters
-"""""""""""""""""""""""""
+Time Series Filters
+"""""""""""""""""""
 
 .. autosummary::
    :toctree: generated/
 
-   filters.bkfilter
-   filters.hpfilter
-   filters.arfilter
-   filters.cffilter
-   filters.miso_lfilter
+   filters.bk_filter.bkfilter
+   filters.hp_filter.hpfilter
+   filters.cf_filter.cffilter
+   filters.filtertools.convolution_filter
+   filters.filtertools.recursive_filter
+   filters.filtertools.miso_lfilter
    filters.filtertools.fftconvolve3
    filters.filtertools.fftconvolveinv
 

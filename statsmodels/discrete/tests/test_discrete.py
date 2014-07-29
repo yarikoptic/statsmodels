@@ -8,19 +8,21 @@ in the Stata *.dta -> *.csv output, NOT the estimator for the Poisson
 tests.
 """
 # pylint: disable-msg=E1101
-
+from statsmodels.compat.python import range
 import os
 import numpy as np
 from numpy.testing import (assert_, assert_raises, assert_almost_equal,
-                           assert_equal, assert_array_equal)
+                           assert_equal, assert_array_equal, assert_allclose,
+                           assert_array_less)
 
 from statsmodels.discrete.discrete_model import (Logit, Probit, MNLogit,
                                                  Poisson, NegativeBinomial)
 from statsmodels.discrete.discrete_margins import _iscount, _isdummy
 import statsmodels.api as sm
 from nose import SkipTest
-from results.results_discrete import Spector, DiscreteL1
+from .results.results_discrete import Spector, DiscreteL1, RandHIE, Anes
 from statsmodels.tools.sm_exceptions import PerfectSeparationError
+
 try:
     import cvxopt
     has_cvxopt = True
@@ -52,7 +54,7 @@ class CheckModelResults(object):
         assert_almost_equal(self.res1.params, self.res2.params, DECIMAL_4)
 
     def test_conf_int(self):
-        assert_almost_equal(self.res1.conf_int(), self.res2.conf_int, DECIMAL_4)
+        assert_allclose(self.res1.conf_int(), self.res2.conf_int, rtol=8e-5)
 
     def test_zstat(self):
         assert_almost_equal(self.res1.tvalues, self.res2.z, DECIMAL_4)
@@ -361,8 +363,23 @@ class TestProbitCG(CheckBinaryResults):
         res2 = Spector()
         res2.probit()
         cls.res2 = res2
-        cls.res1 = Probit(data.endog, data.exog).fit(method="cg",
-            disp=0, maxiter=500, gtol=1e-08)
+
+        # fmin_cg fails to converge on some machines - reparameterize
+        from statsmodels.tools.transform_model import StandardizeTransform
+        transf = StandardizeTransform(data.exog)
+        exog_st = transf(data.exog)
+        res1_st = Probit(data.endog, exog_st).fit(method="cg",
+                                             disp=0, maxiter=500, gtol=1e-08)
+        start_params = transf.transform_params(res1_st.params)
+        assert_allclose(start_params, res2.params, rtol=1e-5, atol=1e-6)
+
+        cls.res1 = Probit(data.endog, data.exog).fit(start_params=start_params,
+                                                     method="cg",
+                                                     maxiter=500, gtol=1e-08,
+                                                     disp=0)
+
+        assert_array_less(cls.res1.mle_retvals['fcalls'], 100)
+
 
 class TestProbitNCG(CheckBinaryResults):
     @classmethod
@@ -389,7 +406,7 @@ class TestProbitBasinhopping(CheckBinaryResults):
         cls.res2 = res2
         fit = Probit(data.endog, data.exog).fit
         cls.res1 = fit(method="basinhopping", disp=0, niter=5,
-                       minimizer={'method' : 'L-BFGS-B', 'tol' : 1e-8})
+                        minimizer={'method' : 'L-BFGS-B', 'tol' : 1e-8})
 
 class CheckLikelihoodModelL1(object):
     """
@@ -523,15 +540,18 @@ class CheckL1Compatability(object):
     def test_params(self):
         m = self.m
         assert_almost_equal(
-            self.res_unreg.params, self.res_reg.params[:m], DECIMAL_4)
+            self.res_unreg.params[:m], self.res_reg.params[:m], DECIMAL_4)
         # The last entry should be close to zero
-        assert_almost_equal(0, self.res_reg.params[m:], DECIMAL_4)
+        # handle extra parameter of NegativeBinomial
+        kvars = self.res_reg.model.exog.shape[1]
+        assert_almost_equal(0, self.res_reg.params[m:kvars], DECIMAL_4)
 
     def test_cov_params(self):
         m = self.m
         # The restricted cov_params should be equal
         assert_almost_equal(
-            self.res_unreg.cov_params(), self.res_reg.cov_params()[:m, :m],
+            self.res_unreg.cov_params()[:m, :m],
+            self.res_reg.cov_params()[:m, :m],
             DECIMAL_1)
 
     def test_df(self):
@@ -541,20 +561,24 @@ class CheckL1Compatability(object):
     def test_t_test(self):
         m = self.m
         kvars = self.kvars
-        t_unreg = self.res_unreg.t_test(np.eye(m))
-        t_reg = self.res_reg.t_test(np.eye(kvars))
-        assert_almost_equal(t_unreg.effect, t_reg.effect[:m], DECIMAL_3)
-        assert_almost_equal(t_unreg.sd, t_reg.sd[:m], DECIMAL_3)
+        # handle extra parameter of NegativeBinomial
+        extra = getattr(self, 'k_extra', 0)
+        t_unreg = self.res_unreg.t_test(np.eye(len(self.res_unreg.params)))
+        t_reg = self.res_reg.t_test(np.eye(kvars + extra))
+        assert_almost_equal(t_unreg.effect[:m], t_reg.effect[:m], DECIMAL_3)
+        assert_almost_equal(t_unreg.sd[:m], t_reg.sd[:m], DECIMAL_3)
         assert_almost_equal(np.nan, t_reg.sd[m])
-        assert_almost_equal(t_unreg.tvalue, t_reg.tvalue[:m], DECIMAL_3)
+        assert_allclose(t_unreg.tvalue[:m], t_reg.tvalue[:m], atol=3e-3)
         assert_almost_equal(np.nan, t_reg.tvalue[m])
 
     def test_f_test(self):
         m = self.m
         kvars = self.kvars
-        f_unreg = self.res_unreg.f_test(np.eye(m))
-        f_reg = self.res_reg.f_test(np.eye(kvars)[:m])
-        assert_almost_equal(f_unreg.fvalue, f_reg.fvalue, DECIMAL_2)
+        # handle extra parameter of NegativeBinomial
+        extra = getattr(self, 'k_extra', 0)
+        f_unreg = self.res_unreg.f_test(np.eye(len(self.res_unreg.params))[:m])
+        f_reg = self.res_reg.f_test(np.eye(kvars + extra)[:m])
+        assert_allclose(f_unreg.fvalue, f_reg.fvalue, rtol=3e-5, atol=1e-3)
         assert_almost_equal(f_unreg.pvalue, f_reg.pvalue, DECIMAL_3)
 
     def test_bad_r_matrix(self):
@@ -572,14 +596,64 @@ class TestPoissonL1Compatability(CheckL1Compatability):
         rand_exog = sm.add_constant(rand_exog, prepend=True)
         # Drop some columns and do an unregularized fit
         exog_no_PSI = rand_exog[:, :cls.m]
-        cls.res_unreg = sm.Poisson(
-            rand_data.endog, exog_no_PSI).fit(method="newton", disp=False)
+        mod_unreg = sm.Poisson(rand_data.endog, exog_no_PSI)
+        cls.res_unreg = mod_unreg.fit(method="newton", disp=False)
         # Do a regularized fit with alpha, effectively dropping the last column
         alpha = 10 * len(rand_data.endog) * np.ones(cls.kvars)
         alpha[:cls.m] = 0
         cls.res_reg = sm.Poisson(rand_data.endog, rand_exog).fit_regularized(
             method='l1', alpha=alpha, disp=False, acc=1e-10, maxiter=2000,
             trim_mode='auto')
+
+
+class TestNegativeBinomialL1Compatability(CheckL1Compatability):
+    @classmethod
+    def setupClass(cls):
+        cls.kvars = 10 # Number of variables
+        cls.m = 7 # Number of unregularized parameters
+        rand_data = sm.datasets.randhie.load()
+        rand_exog = rand_data.exog.view(float).reshape(len(rand_data.exog), -1)
+        rand_exog_st = (rand_exog - rand_exog.mean(0)) / rand_exog.std(0)
+        rand_exog = sm.add_constant(rand_exog_st, prepend=True)
+        # Drop some columns and do an unregularized fit
+        exog_no_PSI = rand_exog[:, :cls.m]
+        mod_unreg = sm.NegativeBinomial(rand_data.endog, exog_no_PSI)
+        cls.res_unreg = mod_unreg.fit(method="newton", disp=False)
+        # Do a regularized fit with alpha, effectively dropping the last column
+        alpha = 10 * len(rand_data.endog) * np.ones(cls.kvars + 1)
+        alpha[:cls.m] = 0
+        alpha[-1] = 0  # don't penalize alpha
+
+        mod_reg = sm.NegativeBinomial(rand_data.endog, rand_exog)
+        cls.res_reg = mod_reg.fit_regularized(
+            method='l1', alpha=alpha, disp=False, acc=1e-10, maxiter=2000,
+            trim_mode='auto')
+        cls.k_extra = 1  # 1 extra parameter in nb2
+
+
+class TestNegativeBinomialGeoL1Compatability(CheckL1Compatability):
+    @classmethod
+    def setupClass(cls):
+        cls.kvars = 10 # Number of variables
+        cls.m = 7 # Number of unregularized parameters
+        rand_data = sm.datasets.randhie.load()
+        rand_exog = rand_data.exog.view(float).reshape(len(rand_data.exog), -1)
+        rand_exog = sm.add_constant(rand_exog, prepend=True)
+        # Drop some columns and do an unregularized fit
+        exog_no_PSI = rand_exog[:, :cls.m]
+        mod_unreg = sm.NegativeBinomial(rand_data.endog, exog_no_PSI,
+                                         loglike_method='geometric')
+        cls.res_unreg = mod_unreg.fit(method="newton", disp=False)
+        # Do a regularized fit with alpha, effectively dropping the last columns
+        alpha = 10 * len(rand_data.endog) * np.ones(cls.kvars)
+        alpha[:cls.m] = 0
+        mod_reg = sm.NegativeBinomial(rand_data.endog, rand_exog,
+                                      loglike_method='geometric')
+        cls.res_reg = mod_reg.fit_regularized(
+            method='l1', alpha=alpha, disp=False, acc=1e-10, maxiter=2000,
+            trim_mode='auto')
+
+        assert_equal(mod_reg.loglike_method, 'geometric')
 
 
 class TestLogitL1Compatability(CheckL1Compatability):
@@ -759,27 +833,16 @@ class TestLogitNewton(CheckBinaryResults, CheckMargEff):
 class TestLogitBFGS(CheckBinaryResults, CheckMargEff):
     @classmethod
     def setupClass(cls):
-        #import scipy
-        #major, minor, micro = scipy.__version__.split('.')[:3]
-        #if int(minor) < 9:
-        #    raise SkipTest
-        #Skip this unconditionally for release 0.3.0
-        #since there are still problems with scipy 0.9.0 on some machines
-        #Ralf on mailing list 2011-03-26
-        raise SkipTest
-
         data = sm.datasets.spector.load()
         data.exog = sm.add_constant(data.exog, prepend=False)
         res2 = Spector()
         res2.logit()
         cls.res2 = res2
-        cls.res1 = Logit(data.endog, data.exog).fit(method="bfgs",
-            disp=0)
+        cls.res1 = Logit(data.endog, data.exog).fit(method="bfgs", disp=0)
 
 class TestPoissonNewton(CheckModelResults):
     @classmethod
     def setupClass(cls):
-        from results.results_discrete import RandHIE
         data = sm.datasets.randhie.load()
         exog = sm.add_constant(data.exog, prepend=False)
         cls.res1 = Poisson(data.endog, exog).fit(method='newton', disp=0)
@@ -804,10 +867,18 @@ class TestPoissonNewton(CheckModelResults):
     def test_resid(self):
         assert_almost_equal(self.res1.resid, self.res2.resid, 2)
 
+    def test_predict_prob(self):
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        probs_res = np.loadtxt(os.path.join(cur_dir, "results",
+                            "predict_prob_poisson.csv"), delimiter=",")
+
+        # just check the first 100 obs. vs R to save memory
+        probs = self.res1.predict_prob()[:100]
+        assert_almost_equal(probs, probs_res, 8)
+
 class TestNegativeBinomialNB2Newton(CheckModelResults):
     @classmethod
     def setupClass(cls):
-        from results.results_discrete import RandHIE
         data = sm.datasets.randhie.load()
         exog = sm.add_constant(data.exog, prepend=False)
         cls.res1 = NegativeBinomial(data.endog, exog, 'nb2').fit(method='newton', disp=0)
@@ -860,7 +931,6 @@ class TestNegativeBinomialNB2Newton(CheckModelResults):
 class TestNegativeBinomialNB1Newton(CheckModelResults):
     @classmethod
     def setupClass(cls):
-        from results.results_discrete import RandHIE
         data = sm.datasets.randhie.load()
         exog = sm.add_constant(data.exog, prepend=False)
         cls.res1 = NegativeBinomial(data.endog, exog, 'nb1').fit(
@@ -901,7 +971,6 @@ class TestNegativeBinomialNB1Newton(CheckModelResults):
 class TestNegativeBinomialNB2BFGS(CheckModelResults):
     @classmethod
     def setupClass(cls):
-        from results.results_discrete import RandHIE
         data = sm.datasets.randhie.load()
         exog = sm.add_constant(data.exog, prepend=False)
         cls.res1 = NegativeBinomial(data.endog, exog, 'nb2').fit(
@@ -956,7 +1025,6 @@ class TestNegativeBinomialNB2BFGS(CheckModelResults):
 class TestNegativeBinomialNB1BFGS(CheckModelResults):
     @classmethod
     def setupClass(cls):
-        from results.results_discrete import RandHIE
         data = sm.datasets.randhie.load()
         exog = sm.add_constant(data.exog, prepend=False)
         cls.res1 = NegativeBinomial(data.endog, exog, 'nb1').fit(method="bfgs",
@@ -1003,7 +1071,6 @@ class TestNegativeBinomialGeometricBFGS(CheckModelResults):
 
     @classmethod
     def setupClass(cls):
-        from results.results_discrete import RandHIE
         data = sm.datasets.randhie.load()
         exog = sm.add_constant(data.exog, prepend=False)
         cls.res1 = NegativeBinomial(data.endog, exog, 'geometric').fit(method='bfgs', disp=0)
@@ -1011,11 +1078,13 @@ class TestNegativeBinomialGeometricBFGS(CheckModelResults):
         res2.negativebinomial_geometric_bfgs()
         cls.res2 = res2
 
+    # the following are regression tests, could be inherited instead
+
     def test_aic(self):
-        assert_almost_equal(self.res1.aic, self.res2.aic, DECIMAL_1)
+        assert_almost_equal(self.res1.aic, self.res2.aic, DECIMAL_3)
 
     def test_bic(self):
-        assert_almost_equal(self.res1.bic, self.res2.bic, DECIMAL_1)
+        assert_almost_equal(self.res1.bic, self.res2.bic, DECIMAL_3)
 
     def test_conf_int(self):
         assert_almost_equal(self.res1.conf_int(), self.res2.conf_int, DECIMAL_3)
@@ -1053,18 +1122,7 @@ class TestNegativeBinomialGeometricBFGS(CheckModelResults):
     test_jac = no_info
 
 
-class TestMNLogitNewtonBaseZero(CheckModelResults):
-    @classmethod
-    def setupClass(cls):
-        from results.results_discrete import Anes
-        data = sm.datasets.anes96.load()
-        cls.data = data
-        exog = data.exog
-        exog = sm.add_constant(exog, prepend=False)
-        cls.res1 = MNLogit(data.endog, exog).fit(method="newton", disp=0)
-        res2 = Anes()
-        res2.mnlogit_basezero()
-        cls.res2 = res2
+class CheckMNLogitBaseZero(CheckModelResults):
 
     def test_margeff_overall(self):
         me = self.res1.get_margeff()
@@ -1168,6 +1226,39 @@ class TestMNLogitNewtonBaseZero(CheckModelResults):
 
     def test_resid(self):
         assert_array_equal(self.res1.resid_misclassified, self.res2.resid)
+
+
+class TestMNLogitNewtonBaseZero(CheckMNLogitBaseZero):
+    @classmethod
+    def setupClass(cls):
+
+        data = sm.datasets.anes96.load()
+        cls.data = data
+        exog = data.exog
+        exog = sm.add_constant(exog, prepend=False)
+        cls.res1 = MNLogit(data.endog, exog).fit(method="newton", disp=0)
+        res2 = Anes()
+        res2.mnlogit_basezero()
+        cls.res2 = res2
+
+class TestMNLogitLBFGSBaseZero(CheckMNLogitBaseZero):
+    @classmethod
+    def setupClass(cls):
+        data = sm.datasets.anes96.load()
+        cls.data = data
+        exog = data.exog
+        exog = sm.add_constant(exog, prepend=False)
+        mymodel = MNLogit(data.endog, exog)
+        cls.res1 = mymodel.fit(method="lbfgs", disp=0, maxiter=50000,
+                #m=12, pgtol=1e-7, factr=1e3, # 5 failures
+                #m=20, pgtol=1e-8, factr=1e2, # 3 failures
+                #m=30, pgtol=1e-9, factr=1e1, # 1 failure
+                m=40, pgtol=1e-10, factr=5e0,
+                loglike_and_score=mymodel.loglike_and_score)
+        res2 = Anes()
+        res2.mnlogit_basezero()
+        cls.res2 = res2
+
 
 def test_perfect_prediction():
     cur_dir = os.path.dirname(os.path.abspath(__file__))
