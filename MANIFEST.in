@@ -1,4 +1,4 @@
-global-include *.csv *.py *.txt *.pyx *.c
+global-include *.csv *.py *.txt
 #scikits*.*
 include MANIFEST.in
 
@@ -6,8 +6,7 @@ include MANIFEST.in
 recursive-exclude build *
 recursive-exclude dist *
 recursive-exclude tools *
-include tools/_build.py
-include tools/example_rst.py
+include tools/examples_rst.py
 include tools/hash_funcs.py
 
 graft statsmodels/datasets
@@ -19,6 +18,7 @@ graft statsmodels/tsa/vector_ar/data
 recursive-include docs/source *
 exclude docs/source/generated/*
 recursive-include docs/sphinxext *
+recursive-include docs/themes *
 recursive-exclude docs/build *
 #recursive-include docs/build/html *
 recursive-exclude docs/build/htmlhelp *
@@ -36,10 +36,12 @@ include statsmodels/iolib/tests/results/*
 include statsmodels/stats/tests/results/influence_lsdiag_R.json
 include statsmodels/sandbox/panel/test_data.txt
 include statsmodels/stats/tests/results/influence_measures_R.csv
+include statsmodels/stats/libqsturng/tests/results/*
 include statsmodels/stats/libqsturng/tests/bootleg.dat
+include statsmodels/stats/libqsturng/tests/bootleg.csv
 include statsmodels/stats/libqsturng/CH.r
 include statsmodels/stats/libqsturng/LICENSE.txt
 include statsmodels/regression/tests/results/leverage_influence_ols_nostars.txt
 
 
-global-exclude *~ *.swp  *.pyc *.bak
+global-exclude *~ *.swp  *.pyc *.bak *.pyx

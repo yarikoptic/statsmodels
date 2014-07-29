@@ -3,82 +3,110 @@
 Welcome to Statsmodels's Documentation
 ======================================
 
-:mod:`statsmodels` is a Python module that provides classes and functions for the estimation 
+:mod:`statsmodels` is a Python module that provides classes and functions for the estimation
 of many different statistical models, as well as for conducting statistical tests, and statistical
 data exploration. An extensive list of result statistics are avalable for each estimator.
 The results are tested against existing statistical packages to ensure that they are correct. The
-package is released under the open source Modified BSD (3-clause) license. The online documentation
-is hosted at `sourceforge <http://statsmodels.sourceforge.net/>`__.
+package is released under the open source Modified BSD (3-clause) license.
+The online documentation is hosted at `sourceforge <http://statsmodels.sourceforge.net/>`__.
 
-Google Summer of Code 2012
---------------------------
 
-Statsmodels is participating for the fourth time in `GSoC <http://www.google-melange.com/gsoc/homepage/google/gsoc2012>`__  under the umbrella of the `Python Software Foundation <http://python.org/psf/>`__. We have set up a `wiki page <https://github.com/statsmodels/statsmodels/wiki/GSoC-Ideas>`__ with ideas for projects. Feel free to contribute to the ideas page or contact the mailing list if you are interested in applying so we can coordinate on developing your application and project - the earlier the better.
+Minimal Examples
+----------------
 
-Getting Started
----------------
-
-Get the data, run the estimation, and look at the results.
-For example, here is a minimal ordinary least squares example
+Since version ``0.5.0`` of ``statsmodels``, you can use R-style formulas
+together with ``pandas`` data frames to fit your models. Here is a simple
+example using ordinary least squares:   
 
 .. code-block:: python
 
-  import numpy as np
-  import statsmodels.api as sm
+    import numpy as np
+    import pandas as pd
+    import statsmodels.formula.api as smf
 
-  # get data
-  nsample = 100
-  x = np.linspace(0,10, 100)
-  X = sm.add_constant(np.column_stack((x, x**2)))
-  beta = np.array([1, 0.1, 10])
-  y = np.dot(X, beta) + np.random.normal(size=nsample)
+    # Load data
+    url = 'http://vincentarelbundock.github.io/Rdatasets/csv/HistData/Guerry.csv'
+    dat = pd.read_csv(url)
 
-  # run the regression
-  results = sm.OLS(y, X).fit()
+    # Fit regression model (using the natural log of one of the regressors)
+    results = smf.ols('Lottery ~ Literacy + np.log(Pop1831)', data=dat).fit()
 
-  # look at the results
-  print results.summary()
+    # Inspect the results
+    print results.summary()
 
-Have a look at `dir(results)` to see available results. Attributes are 
+You can also use ``numpy`` arrays instead of formulas:
+
+.. code-block:: python
+
+    import numpy as np
+    import statsmodels.api as sm
+
+    # Generate artificial data (2 regressors + constant)
+    nobs = 100
+    X = np.random.random((nobs, 2)) 
+    X = sm.add_constant(X)
+    beta = [1, .1, .5]
+    e = np.random.random(nobs)
+    y = np.dot(X, beta) + e 
+
+    # Fit regression model
+    results = sm.OLS(y, X).fit()
+
+    # Inspect the results
+    print results.summary()
+
+Have a look at `dir(results)` to see available results. Attributes are
 described in `results.__doc__` and results methods have their own docstrings.
 
+Basic Documentation
+-------------------
+
+.. toctree::
+    :maxdepth: 3
+
+    introduction
+    release/index
+    gettingstarted
+    example_formulas
+    install
+    related
+
+Information about the structure and development of
+statsmodels:
+
+.. toctree::
+   :maxdepth: 1
+
+   endog_exog
+   importpaths
+   pitfalls
+   dev/index
+   dev/internal
 
 Table of Contents
 -----------------
 
 .. toctree::
-   :maxdepth: 1
-
-   introduction
-   related
-   dev/index
-   pitfalls
-   importpaths
-
-.. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    regression
    glm
    rlm
    discretemod
+   anova
    tsa
    stats
    nonparametric
-   tools
-   miscmodels
-   dev/internal
    gmm
+   emplike
+   miscmodels
    distributions
    graphics
    iolib
+   tools
    datasets/index
    sandbox
 
-Related Projects
-----------------
-
-See our :ref:`related projects page <related>`.
 
 Indices and tables
 ------------------
@@ -86,3 +114,4 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+

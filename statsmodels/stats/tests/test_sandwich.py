@@ -28,7 +28,7 @@ def test_cov_cluster_2groups():
     endog = pet[:,-1]
     group = pet[:,0].astype(int)
     time = pet[:,1].astype(int)
-    exog = add_constant(pet[:,2], prepend=True)
+    exog = add_constant(pet[:,2])
     res = OLS(endog, exog).fit()
 
     cov01, covg, covt = sw.cov_cluster_2groups(res, group, group2=time)
@@ -58,7 +58,7 @@ def test_hac_simple():
     d2 = macrodata.load().data
     g_gdp = 400*np.diff(np.log(d2['realgdp']))
     g_inv = 400*np.diff(np.log(d2['realinv']))
-    exogg = add_constant(np.c_[g_gdp, d2['realint'][:-1]],prepend=True)
+    exogg = add_constant(np.c_[g_gdp, d2['realint'][:-1]])
     res_olsg = OLS(g_inv, exogg).fit()
 
 
@@ -83,6 +83,11 @@ def test_hac_simple():
     se2 =  sw.se_cov(cov2)
     assert_almost_equal(cov1, cov1_r, decimal=14)
     assert_almost_equal(cov2, cov2_r, decimal=14)
+
+    # compare default for nlags
+    cov3 = sw.cov_hac_simple(res_olsg, use_correction=False)
+    cov4 = sw.cov_hac_simple(res_olsg, nlags=4, use_correction=False)
+    assert_almost_equal(cov3, cov4, decimal=14)
 
 if __name__ == '__main__':
     import nose

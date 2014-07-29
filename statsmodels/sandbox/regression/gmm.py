@@ -52,7 +52,7 @@ License: BSD (3-clause)
 
 import numpy as np
 from scipy import optimize, stats
-from statsmodels.sandbox.regression.numdiff import approx_fprime1, approx_hess
+from statsmodels.tools.numdiff import approx_fprime, approx_hess
 from statsmodels.base.model import LikelihoodModel, LikelihoodModelResults
 from statsmodels.regression.linear_model import RegressionResults, OLS
 import statsmodels.tools.tools as tools
@@ -142,7 +142,7 @@ class IV2SLS(LikelihoodModel):
         return lfit
 
     #copied from GLS, because I subclass currently LikelihoodModel and not GLS
-    def predict(self, exog, params=None):
+    def predict(self, params, exog=None):
         """
         Return linear predicted values from a design matrix.
 
@@ -161,6 +161,9 @@ class IV2SLS(LikelihoodModel):
         -----
         If the model as not yet been fit, params is not optional.
         """
+        if exog is None:
+            exog = self.exog
+        return np.dot(exog, params)
         #JP: this doesn't look correct for GLMAR
         #SS: it needs its own predict method
         if self._results is None and params is None:
@@ -496,10 +499,10 @@ class GMM(object):
 
         momcond = self.momcond_mean
         if method == 'centered':
-            gradmoms = (approx_fprime1(params, momcond, epsilon=epsilon) +
-                    approx_fprime1(params, momcond, epsilon=-epsilon))/2
+            gradmoms = (approx_fprime(params, momcond, epsilon=epsilon) +
+                    approx_fprime(params, momcond, epsilon=-epsilon))/2
         else:
-            gradmoms = approx_fprime1(params, momcond, epsilon=epsilon)
+            gradmoms = approx_fprime(params, momcond, epsilon=epsilon)
 
         return gradmoms
 
@@ -814,7 +817,7 @@ if __name__ == '__main__':
 
 
         x = np.linspace(0,10, nobs)
-        X = tools.add_constant(np.column_stack((x, x**2)))
+        X = tools.add_constant(np.column_stack((x, x**2)), prepend=False)
         beta = np.array([1, 0.1, 10])
 
         def sample_ols(exog):

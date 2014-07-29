@@ -110,7 +110,7 @@ from statsmodels.stats.moment_helpers import se_cov
 __all__ = ['cov_cluster', 'cov_cluster_2groups', 'cov_hac', 'cov_nw_panel',
            'cov_white_simple',
            'cov_hc0', 'cov_hc1', 'cov_hc2', 'cov_hc3',
-           'se_cov']
+           'se_cov', 'weights_bartlett', 'weights_uniform']
 
 
 
@@ -326,7 +326,7 @@ def S_hac_simple(x, nlags=None, weights_func=weights_bartlett):
         data, for HAC this is array of x_i * u_i
     nlags : int or None
         highest lag to include in kernel window. If None, then
-        nlags = floor[4(T/100)^(2/9)] is used.
+        nlags = floor(4(T/100)^(2/9)) is used.
     weights_func : callable
         weights_func is called with nlags as argument to get the kernel
         weights. default are Bartlett weights
@@ -340,8 +340,6 @@ def S_hac_simple(x, nlags=None, weights_func=weights_bartlett):
     -----
     used by cov_hac_simple
 
-    verified only for nlags=0, which is just White, through cov_hac_simple
-
     options might change when other kernels besides Bartlett are available.
 
     '''
@@ -350,7 +348,7 @@ def S_hac_simple(x, nlags=None, weights_func=weights_bartlett):
         x = x[:,None]
     n_periods = x.shape[0]
     if nlags is None:
-        nlags = np.floor[4 * (n_periods / 100.)**(2./9.)]
+        nlags = int(np.floor(4 * (n_periods / 100.)**(2./9.)))
 
     weights = weights_func(nlags)
 
@@ -435,8 +433,8 @@ def S_hac_groupsum(x, time, nlags=None, weights_func=weights_bartlett):
     S : ndarray, (k_vars, k_vars)
         inner covariance matrix for sandwich
 
-    Reference
-    ---------
+    References
+    ----------
     Daniel Hoechle, xtscc paper
     Driscoll and Kraay
 
@@ -819,8 +817,8 @@ def cov_nw_groupsum(results, nlags, time, weights_func=weights_bartlett,
     Options might change when other kernels besides Bartlett and uniform are
     available.
 
-    Reference
-    ---------
+    References
+    ----------
     Daniel Hoechle, xtscc paper
     Driscoll and Kraay
 

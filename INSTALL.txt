@@ -1,11 +1,11 @@
 Dependencies
 ------------
 
-python >= 2.5
+python >= 2.6
 
     www.python.org
 
-numpy >= 1.4.0
+numpy >= 1.5.1
 
     www.numpy.org
 
@@ -15,20 +15,23 @@ scipy >= 0.7
 
 pandas >= 0.7.1
 
-    pydata.pandas.org
+    pandas.pydata.org
 
+patsy >= 0.1.0
 
-Optional Dependencies
----------------------
+    patsy.readthedocs.org
+
 
 cython >= 0.15.1
 
     http://cython.org/
 
-    If Cython is available during installation from source faster functions 
-    will be installed in some places provided you have a C compiler. It is 
-    recommended to install from source with Cython available, as this will not
-    be optional in the 0.5 release.
+    Cython is required if you are building the source from github. However,
+    if you have are building from source distribution archive then the 
+    generated C files are included and Cython is not necessary.
+
+Optional Dependencies
+---------------------
 
 matplotlib >= 1.0.0
 
@@ -90,8 +93,10 @@ Or clone the bleeding edge code from our repository on github at
 
 In the statsmodels directory do (with proper permissions)
 
+    python setup.py build
     python setup.py install
 
+You will need a C compiler installed.
 
 Installing from Source on Windows
 ---------------------------------

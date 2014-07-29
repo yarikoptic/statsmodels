@@ -77,7 +77,8 @@ import numpy as np
 from numpy.testing import assert_almost_equal
 
 #from scipy.stats import t, norm
-from scipy import optimize, signal, derivative
+from scipy import optimize, signal
+from scipy.misc import derivative
 from scipy.stats import ss as sumofsq
 
 import matplotlib.pyplot as plt
@@ -950,8 +951,8 @@ def generate_garch(nobs, ar, ma, mu=1., scale=0.1):
 def generate_gjrgarch(nobs, ar, ma, mu=1., scale=0.1, varinnovation=None):
     '''simulate gjr garch process
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     ar : array_like, 1d
         autoregressive term for variance
     ma : array_like, 2d

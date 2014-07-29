@@ -1,4 +1,4 @@
-from numpy.testing import *
+from numpy.testing import assert_equal
 import warnings
 
 __all__ = ['resettable_cache','cache_readonly', 'cache_writable']
@@ -189,6 +189,14 @@ class OneTimeProperty(object):
         #print "** auto_attr - loading '%s'" % self.name  # dbg
         setattr(obj, self.name, val)
         return val
+
+try:
+    from nose.tools import nottest
+except ImportError:
+    # make a dummy decorator so people that don't have nose installed
+    # don't get an error
+    def nottest(fn):
+        return fn
 
 
 if __name__ == "__main__":

@@ -54,10 +54,14 @@ def make_lag_names(names, lag_order, trendorder=1):
 
     """
     lag_names = []
+    if isinstance(names, basestring): # python 3?
+        names = [names]
 
     # take care of lagged endogenous names
     for i in range(1, lag_order + 1):
         for name in names:
+            if not isinstance(name, basestring):
+                name = str(name) # will need consistent unicode handling
             lag_names.append('L'+str(i)+'.'+name)
 
     # handle the constant name
@@ -109,12 +113,14 @@ def parse_lutkepohl_data(path): # pragma: no cover
     import pandas
     import pandas.core.datetools as dt
     import re
+    from statsmodels.compatnp.py3k import asbytes
 
-    regex = re.compile('<(.*) (\w)([\d]+)>.*')
-    lines = deque(open(path))
+    regex = re.compile(asbytes('<(.*) (\w)([\d]+)>.*'))
+    lines = deque(open(path, 'rb'))
 
     to_skip = 0
-    while '*/' not in lines.popleft():
+    while asbytes('*/') not in lines.popleft():
+        #while '*/' not in lines.popleft():
         to_skip += 1
 
     while True:
@@ -134,9 +140,9 @@ def parse_lutkepohl_data(path): # pragma: no cover
     year = int(year)
 
     offsets = {
-        'Q' : dt.BQuarterEnd(),
-        'M' : dt.BMonthEnd(),
-        'A' : dt.BYearEnd()
+        asbytes('Q') : dt.BQuarterEnd(),
+        asbytes('M') : dt.BMonthEnd(),
+        asbytes('A') : dt.BYearEnd()
     }
 
     # create an instance
@@ -146,7 +152,12 @@ def parse_lutkepohl_data(path): # pragma: no cover
     start_date = offset.rollforward(datetime(year, 1, 1)) + inc
 
     offset = offsets[freq]
-    date_range = pandas.DateRange(start_date, offset=offset, periods=n)
+    try:
+        from pandas import DatetimeIndex   # pylint: disable=E0611
+        date_range = DatetimeIndex(start=start_date, freq=offset, periods=n)
+    except ImportError:
+        from pandas import DateRange
+        date_range = DateRange(start_date, offset=offset, periods=n)
 
     return data, date_range
 
@@ -208,7 +219,7 @@ def eigval_decomp(sym_array):
     Returns
     -------
     W: array of eigenvectors
-    eigva: list of eigenvalues 
+    eigva: list of eigenvalues
     k: largest eigenvector
     """
     #check if symmetric, do not include shock period
@@ -224,7 +235,6 @@ def vech(A):
     vechvec: vector of all elements on and below diagonal
     """
 
-def vech(A):
     length=A.shape[1]
     vechvec=[]
     for i in xrange(length):

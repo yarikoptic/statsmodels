@@ -1,15 +1,15 @@
 """
 Test functions for models.regression
 """
+import warnings
+import pandas
 import numpy as np
-from numpy.testing import *
+from numpy.testing import (assert_almost_equal, assert_approx_equal,
+                            assert_raises, assert_equal)
 from scipy.linalg import toeplitz
-from statsmodels.tools.tools import add_constant
-from statsmodels.regression.linear_model import (OLS, GLSAR, WLS, GLS,
-        yule_walker)
+from statsmodels.tools.tools import add_constant, categorical
+from statsmodels.regression.linear_model import OLS, WLS, GLS, yule_walker
 from statsmodels.datasets import longley
-#from check_for_rpy import skip_rpy
-from nose import SkipTest
 from scipy.stats import t as student_t
 
 DECIMAL_4 = 4
@@ -18,10 +18,6 @@ DECIMAL_2 = 2
 DECIMAL_1 = 1
 DECIMAL_7 = 7
 DECIMAL_0 = 0
-#skipR = skip_rpy()
-#if not skipR:
-#    from rpy import r, RPyRException
-#    from rmodelwrap import RModel
 
 
 class CheckRegressionResults(object):
@@ -42,12 +38,7 @@ class CheckRegressionResults(object):
 
     decimal_confidenceintervals = DECIMAL_4
     def test_confidenceintervals(self):
-#        if hasattr(self.res2, 'conf_int'):
-#            self.check_confidenceintervals(self.res1.conf_int(),
-#                self.res2.conf_int)
-#        else:
-#            raise SkipTest, "Results from Rpy"
-#NOTE: stata rounds residuals (at least) to sig digits so approx_equal
+    #NOTE: stata rounds residuals (at least) to sig digits so approx_equal
         conf1 = self.res1.conf_int()
         conf2 = self.res2.conf_int()
         for i in range(len(conf1)):
@@ -86,9 +77,7 @@ class CheckRegressionResults(object):
 
     decimal_ess = DECIMAL_4
     def test_ess(self):
-        """
-        Explained Sum of Squares
-        """
+        #Explained Sum of Squares
         assert_almost_equal(self.res1.ess, self.res2.ess,
                     self.decimal_ess)
 
@@ -98,9 +87,7 @@ class CheckRegressionResults(object):
 
     decimal_mse_resid = DECIMAL_4
     def test_mse_resid(self):
-        """
-        Mean squared error of residuals
-        """
+        #Mean squared error of residuals
         assert_almost_equal(self.res1.mse_model, self.res2.mse_model,
                     self.decimal_mse_resid)
 
@@ -108,6 +95,11 @@ class CheckRegressionResults(object):
     def test_mse_model(self):
         assert_almost_equal(self.res1.mse_resid, self.res2.mse_resid,
                     self.decimal_mse_model)
+
+    decimal_mse_total = DECIMAL_4
+    def test_mse_total(self):
+        assert_almost_equal(self.res1.mse_total, self.res2.mse_total,
+                    self.decimal_mse_total)
 
     decimal_fvalue = DECIMAL_4
     def test_fvalue(self):
@@ -150,7 +142,7 @@ class TestOLS(CheckRegressionResults):
     def setupClass(cls):
         from results.results_regression import Longley
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         res1 = OLS(data.endog, data.exog).fit()
         res2 = Longley()
         res2.wresid = res1.wresid # workaround hack
@@ -160,13 +152,10 @@ class TestOLS(CheckRegressionResults):
         res_qr = OLS(data.endog, data.exog).fit(method="qr")
         cls.res_qr = res_qr
 
-
-#  Robust error tests.  Compare values computed with SAS
+    #  Robust error tests.  Compare values computed with SAS
     def test_HC0_errors(self):
-        '''
-        They are split up because the copied results do not have any DECIMAL_4
-        places for the last place.
-        '''
+        #They are split up because the copied results do not have any DECIMAL_4
+        #places for the last place.
         assert_almost_equal(self.res1.HC0_se[:-1],
                 self.res2.HC0_se[:-1], DECIMAL_4)
         assert_approx_equal(np.round(self.res1.HC0_se[-1]), self.res2.HC0_se[-1])
@@ -196,6 +185,38 @@ class TestOLS(CheckRegressionResults):
                 self.res1.normalized_cov_params /
                 self.res_qr.normalized_cov_params, 5)
 
+    def test_missing(self):
+        data = longley.load()
+        data.exog = add_constant(data.exog, prepend=False)
+        data.endog[[3, 7, 14]] = np.nan
+        mod = OLS(data.endog, data.exog, missing='drop')
+        assert_equal(mod.endog.shape[0], 13)
+        assert_equal(mod.exog.shape[0], 13)
+
+    def test_rsquared_adj_overfit(self):
+        # Test that if df_resid = 0, rsquared_adj = 0.
+        # This is a regression test for user issue:
+        # https://github.com/statsmodels/statsmodels/issues/868
+        with warnings.catch_warnings(record=True):
+            x = np.random.randn(5)
+            y = np.random.randn(5, 6)
+            results = OLS(x, y).fit()
+            rsquared_adj = results.rsquared_adj
+            assert_equal(rsquared_adj, np.nan)
+
+class TestRTO(CheckRegressionResults):
+    @classmethod
+    def setupClass(cls):
+        from results.results_regression import LongleyRTO
+        data = longley.load()
+        res1 = OLS(data.endog, data.exog).fit()
+        res2 = LongleyRTO()
+        res2.wresid = res1.wresid # workaround hack
+        cls.res1 = res1
+        cls.res2 = res2
+
+        res_qr = OLS(data.endog, data.exog).fit(method="qr")
+        cls.res_qr = res_qr
 
 class TestFtest(object):
     """
@@ -204,7 +225,7 @@ class TestFtest(object):
     @classmethod
     def setupClass(cls):
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         cls.res1 = OLS(data.endog, data.exog).fit()
         R = np.identity(7)[:-1,:]
         cls.Ftest = cls.res1.f_test(R)
@@ -232,22 +253,15 @@ class TestFTest2(object):
     @classmethod
     def setupClass(cls):
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         res1 = OLS(data.endog, data.exog).fit()
         R2 = [[0,1,-1,0,0,0,0],[0, 0, 0, 0, 1, -1, 0]]
         cls.Ftest1 = res1.f_test(R2)
-#        if skipR:
-#            raise SkipTest, "Rpy not installed"
-#        try:
-#            r.library('car')
-#        except RPyRException:
-#            raise SkipTest, "car library not installed for R"
-#        self.R2 = [[0,1,-1,0,0,0,0],[0, 0, 0, 0, 1, -1, 0]]
-#        self.Ftest2 = self.res1.f_test(self.R2)
-#        self.R_Results = RModel(self.data.endog, self.data.exog, r.lm).robj
-#        self.F = r.linear_hypothesis(self.R_Results,
-#                r.c('x.2 = x.3', 'x.5 = x.6'))
+        hyp = 'x2 = x3, x5 = x6'
+        cls.NewFtest1 = res1.f_test(hyp)
 
+    def test_new_ftest(self):
+        assert_equal(self.NewFtest1.fvalue, self.Ftest1.fvalue)
 
     def test_fvalue(self):
         assert_almost_equal(self.Ftest1.fvalue, 9.7404618732968196, DECIMAL_4)
@@ -270,7 +284,7 @@ class TestFtestQ(object):
     @classmethod
     def setupClass(cls):
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         res1 = OLS(data.endog, data.exog).fit()
         R = np.array([[0,1,1,0,0,0,0],
               [0,1,0,1,0,0,0],
@@ -278,7 +292,7 @@ class TestFtestQ(object):
               [0,0,0,0,1,0,0],
               [0,0,0,0,0,1,0]])
         q = np.array([0,0,0,1,0])
-        cls.Ftest1 = res1.f_test(R,q)
+        cls.Ftest1 = res1.f_test((R,q))
 
     def test_fvalue(self):
         assert_almost_equal(self.Ftest1.fvalue, 70.115557, 5)
@@ -292,7 +306,6 @@ class TestFtestQ(object):
     def test_df_num(self):
         assert_equal(self.Ftest1.df_num, 5)
 
-
 class TestTtest(object):
     '''
     Test individual t-tests.  Ie., are the coefficients significantly
@@ -302,16 +315,15 @@ class TestTtest(object):
     @classmethod
     def setupClass(cls):
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         cls.res1 = OLS(data.endog, data.exog).fit()
         R = np.identity(7)
         cls.Ttest = cls.res1.t_test(R)
+        hyp = 'x1 = 0, x2 = 0, x3 = 0, x4 = 0, x5 = 0, x6 = 0, const = 0'
+        cls.NewTTest = cls.res1.t_test(hyp)
 
-#    def setup(self):
-#        if skipR:
-#            raise SkipTest, "Rpy not installed"
-#        else:
-#        self.R_Results = RModel(data.endog, data.exog, r.lm).robj
+    def test_new_tvalue(self):
+        assert_equal(self.NewTTest.tvalue, self.Ttest.tvalue)
 
     def test_tvalue(self):
         assert_almost_equal(self.Ttest.tvalue, self.res1.tvalues, DECIMAL_4)
@@ -320,9 +332,9 @@ class TestTtest(object):
         assert_almost_equal(self.Ttest.sd, self.res1.bse, DECIMAL_4)
 
     def test_pvalue(self):
-        assert_almost_equal(self.Ttest.pvalue,
-                student_t.sf(np.abs(self.res1.tvalues),self.res1.model.df_resid),
-                    DECIMAL_4)
+        assert_almost_equal(self.Ttest.pvalue, student_t.sf(
+                        np.abs(self.res1.tvalues), self.res1.model.df_resid)*2,
+                        DECIMAL_4)
 
     def test_df_denom(self):
         assert_equal(self.Ttest.df_denom, self.res1.model.df_resid)
@@ -339,25 +351,12 @@ class TestTtest2(object):
     '''
     @classmethod
     def setupClass(cls):
-#        if skipR:
-#            raise SkipTest, "Rpy not installed"
-#        try:
-#            r.library('car')
-#        except RPyRException:
-#            raise SkipTest, "car library not installed for R"
         R = np.zeros(7)
         R[4:6] = [1,-1]
-#        self.R = R
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         res1 = OLS(data.endog, data.exog).fit()
         cls.Ttest1 = res1.t_test(R)
-#        self.R_Results = RModel(self.data.endog, self.data.exog, r.lm).robj
-#        self.Ttest2 = r.linear_hypothesis(self.R_Results, 'x.5 = x.6')
-#        t = np.sign(np.inner(R, self.res1.params))*\
-#            np.sqrt(self.Ttest2['F'][1])
-#        self.t = t
-#        self.effect = np.sum(R * self.res1.params)
 
     def test_tvalue(self):
         assert_almost_equal(self.Ttest1.tvalue, -4.0167754636397284,
@@ -367,7 +366,7 @@ class TestTtest2(object):
         assert_almost_equal(self.Ttest1.sd, 455.39079425195314, DECIMAL_4)
 
     def test_pvalue(self):
-        assert_almost_equal(self.Ttest1.pvalue, 0.0015163772380932246,
+        assert_almost_equal(self.Ttest1.pvalue, 2*0.0015163772380932246,
             DECIMAL_4)
 
     def test_df_denom(self):
@@ -385,8 +384,8 @@ class TestGLS(object):
         from results.results_regression import LongleyGls
 
         data = longley.load()
-        exog = add_constant(np.column_stack(\
-                (data.exog[:,1],data.exog[:,4])))
+        exog = add_constant(np.column_stack((data.exog[:,1],
+                                             data.exog[:,4])), prepend=False)
         tmp_results = OLS(data.endog, exog).fit()
         rho = np.corrcoef(tmp_results.resid[1:],
                 tmp_results.resid[:-1])[0][1] # by assumption
@@ -395,6 +394,10 @@ class TestGLS(object):
         GLS_results = GLS(data.endog, exog, sigma=sigma).fit()
         cls.res1 = GLS_results
         cls.res2 = LongleyGls()
+        # attach for test_missing
+        cls.sigma = sigma
+        cls.exog = exog
+        cls.endog = data.endog
 
     def test_aic(self):
         assert_approx_equal(self.res1.aic+2, self.res2.aic, 3)
@@ -427,6 +430,14 @@ class TestGLS(object):
     def test_pvalues(self):
         assert_almost_equal(self.res1.pvalues, self.res2.pvalues, DECIMAL_4)
 
+    def test_missing(self):
+        endog = self.endog.copy() # copy or changes endog for other methods
+        endog[[4,7,14]] = np.nan
+        mod = GLS(endog, self.exog, sigma=self.sigma, missing='drop')
+        assert_equal(mod.endog.shape[0], 13)
+        assert_equal(mod.exog.shape[0], 13)
+        assert_equal(mod.sigma.shape, (13,13))
+
 class TestGLS_nosigma(CheckRegressionResults):
     '''
     Test that GLS with no argument is equivalent to OLS.
@@ -434,7 +445,7 @@ class TestGLS_nosigma(CheckRegressionResults):
     @classmethod
     def setupClass(cls):
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         ols_res = OLS(data.endog, data.exog).fit()
         gls_res = GLS(data.endog, data.exog).fit()
         cls.res1 = gls_res
@@ -444,51 +455,89 @@ class TestGLS_nosigma(CheckRegressionResults):
 #    def check_confidenceintervals(self, conf1, conf2):
 #        assert_almost_equal(conf1, conf2, DECIMAL_4)
 
-#class TestWLS(CheckRegressionResults):
-#    '''
-#    Test WLS with Greene's credit card data
-#    '''
-#    def __init__(self):
-#        from statsmodels.datasets.ccard import load
-#        self.data = load()
-#        self.res1 = WLS(self.data.endog, self.data.exog,
-#                weights=1/self.data.exog[:,2]).fit()
-#FIXME: triaged results for noconstant
-#        self.res1.ess = self.res1.uncentered_tss - self.res1.ssr
-#        self.res1.rsquared = self.res1.ess/self.res1.uncentered_tss
-#        self.res1.mse_model = self.res1.ess/(self.res1.df_model + 1)
-#        self.res1.fvalue = self.res1.mse_model/self.res1.mse_resid
-#        self.res1.rsquared_adj = 1 -(self.res1.nobs)/(self.res1.df_resid)*\
-#                (1-self.res1.rsquared)
+class TestWLSExogWeights(CheckRegressionResults):
+    #Test WLS with Greene's credit card data
+    #reg avgexp age income incomesq ownrent [aw=1/incomesq]
+    def __init__(self):
+        from results.results_regression import CCardWLS
+        from statsmodels.datasets.ccard import load
+        dta = load()
 
-#    def setup(self):
-#        if skipR:
-#            raise SkipTest, "Rpy not installed"
-#        self.res2 = RModel(self.data.endog, self.data.exog, r.lm,
-#                        weights=1/self.data.exog[:,2])
-#        self.res2.wresid = self.res2.rsum['residuals']
-#        self.res2.scale = self.res2.scale**2 # R has sigma not sigma**2
+        dta.exog = add_constant(dta.exog, prepend=False)
+        nobs = 72.
 
-#    def check_confidenceintervals(self, conf1, conf2):
-#        assert_almost_equal(conf1, conf2, DECIMAL_4)
+        weights = 1/dta.exog[:,2]
+        # for comparison with stata analytic weights
+        scaled_weights = ((weights * nobs)/weights.sum())
 
+        self.res1 = WLS(dta.endog, dta.exog, weights=scaled_weights).fit()
+        self.res2 = CCardWLS()
+        self.res2.wresid = scaled_weights ** .5 * self.res2.resid
 
-class TestWLS_GLS(CheckRegressionResults):
+def test_wls_example():
+    #example from the docstring, there was a note about a bug, should
+    #be fixed now
+    Y = [1,3,4,5,2,3,4]
+    X = range(1,8)
+    X = add_constant(X, prepend=False)
+    wls_model = WLS(Y,X, weights=range(1,8)).fit()
+    #taken from R lm.summary
+    assert_almost_equal(wls_model.fvalue, 0.127337843215, 6)
+    assert_almost_equal(wls_model.scale, 2.44608530786**2, 6)
+
+def test_wls_tss():
+    y = np.array([22, 22, 22, 23, 23, 23])
+    X = [[1, 0], [1, 0], [1, 1], [0, 1], [0, 1], [0, 1]]
+
+    ols_mod = OLS(y, add_constant(X, prepend=False)).fit()
+
+    yw = np.array([22, 22, 23.])
+    Xw = [[1,0],[1,1],[0,1]]
+    w = np.array([2, 1, 3.])
+
+    wls_mod = WLS(yw, add_constant(Xw, prepend=False), weights=w).fit()
+    assert_equal(ols_mod.centered_tss, wls_mod.centered_tss)
+
+class TestWLSScalarVsArray(CheckRegressionResults):
     @classmethod
     def setupClass(cls):
-        from statsmodels.datasets.ccard import load
-        data = load()
-        cls.res1 = WLS(data.endog, data.exog, weights = 1/data.exog[:,2]).fit()
-        cls.res2 = GLS(data.endog, data.exog, sigma = data.exog[:,2]).fit()
+        from statsmodels.datasets.longley import load
+        dta = load()
+        dta.exog = add_constant(dta.exog, prepend=True)
+        wls_scalar = WLS(dta.endog, dta.exog, weights=1./3).fit()
+        weights = [1/3.] * len(dta.endog)
+        wls_array = WLS(dta.endog, dta.exog, weights=weights).fit()
+        cls.res1 = wls_scalar
+        cls.res2 = wls_array
 
-    def check_confidenceintervals(self, conf1, conf2):
-        assert_almost_equal(conf1, conf2(), DECIMAL_4)
+#class TestWLS_GLS(CheckRegressionResults):
+#    @classmethod
+#    def setupClass(cls):
+#        from statsmodels.datasets.ccard import load
+#        data = load()
+#        cls.res1 = WLS(data.endog, data.exog, weights = 1/data.exog[:,2]).fit()
+#        cls.res2 = GLS(data.endog, data.exog, sigma = data.exog[:,2]).fit()
+#
+#    def check_confidenceintervals(self, conf1, conf2):
+#        assert_almost_equal(conf1, conf2(), DECIMAL_4)
+
+def test_wls_missing():
+    from statsmodels.datasets.ccard import load
+    data = load()
+    endog = data.endog
+    endog[[10, 25]] = np.nan
+    mod = WLS(data.endog, data.exog, weights = 1/data.exog[:,2], missing='drop')
+    assert_equal(mod.endog.shape[0], 70)
+    assert_equal(mod.exog.shape[0], 70)
+    assert_equal(mod.weights.shape[0], 70)
+
+
 
 class TestWLS_OLS(CheckRegressionResults):
     @classmethod
     def setupClass(cls):
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         cls.res1 = OLS(data.endog, data.exog).fit()
         cls.res2 = WLS(data.endog, data.exog).fit()
 
@@ -499,7 +548,7 @@ class TestGLS_OLS(CheckRegressionResults):
     @classmethod
     def setupClass(cls):
         data = longley.load()
-        data.exog = add_constant(data.exog)
+        data.exog = add_constant(data.exog, prepend=False)
         cls.res1 = GLS(data.endog, data.exog).fit()
         cls.res2 = OLS(data.endog, data.exog).fit()
 
@@ -532,13 +581,6 @@ class TestYuleWalker(object):
                 method="mle")
         cls.R_params = [1.2831003105694765, -0.45240924374091945,
                 -0.20770298557575195, 0.047943648089542337]
-
-#    def setup(self):
-#        if skipR:
-#            raise SkipTest, "Rpy not installed."
-#
-#        R_results = r.ar(self.data.endog, aic="FALSE", order_max=4)
-#        self.R_params = R_results['ar']
 
     def test_params(self):
         assert_almost_equal(self.rho, self.R_params, DECIMAL_4)
@@ -593,6 +635,79 @@ def test_bad_size():
     np.random.seed(54321)
     data = np.random.uniform(0,20,31)
     assert_raises(ValueError, OLS, data, data[1:])
+
+def test_const_indicator():
+    np.random.seed(12345)
+    X = np.random.randint(0, 3, size=30)
+    X = categorical(X, drop=True)
+    y = np.dot(X, [1., 2., 3.]) + np.random.normal(size=30)
+    modc = OLS(y, add_constant(X[:,1:], prepend=True)).fit()
+    mod = OLS(y, X, hasconst=True).fit()
+    assert_almost_equal(modc.rsquared, mod.rsquared, 12)
+
+def test_706():
+    # make sure one regressor pandas Series gets passed to DataFrame
+    # for conf_int.
+    y = pandas.Series(np.random.randn(10))
+    x = pandas.Series(np.ones(10))
+    res = OLS(y,x).fit()
+    conf_int = res.conf_int()
+    np.testing.assert_equal(conf_int.shape, (1, 2))
+    np.testing.assert_(isinstance(conf_int, pandas.DataFrame))
+
+def test_summary():
+    # test 734
+    import re
+    dta = longley.load_pandas()
+    X = dta.exog
+    X["constant"] = 1
+    y = dta.endog
+    with warnings.catch_warnings(record=True):
+        res = OLS(y, X).fit()
+        table = res.summary().as_latex()
+    # replace the date and time
+    table = re.sub("(?<=\n\\\\textbf\{Date:\}             &).+?&",
+                   " Sun, 07 Apr 2013 &", table)
+    table = re.sub("(?<=\n\\\\textbf\{Time:\}             &).+?&",
+                   "     13:46:07     &", table)
+
+    expected = """\\begin{center}
+\\begin{tabular}{lclc}
+\\toprule
+\\textbf{Dep. Variable:}    &      TOTEMP      & \\textbf{  R-squared:         } &     0.995   \\\\
+\\textbf{Model:}            &       OLS        & \\textbf{  Adj. R-squared:    } &     0.992   \\\\
+\\textbf{Method:}           &  Least Squares   & \\textbf{  F-statistic:       } &     330.3   \\\\
+\\textbf{Date:}             & Sun, 07 Apr 2013 & \\textbf{  Prob (F-statistic):} &  4.98e-10   \\\\
+\\textbf{Time:}             &     13:46:07     & \\textbf{  Log-Likelihood:    } &   -109.62   \\\\
+\\textbf{No. Observations:} &          16      & \\textbf{  AIC:               } &     233.2   \\\\
+\\textbf{Df Residuals:}     &           9      & \\textbf{  BIC:               } &     238.6   \\\\
+\\bottomrule
+\\end{tabular}
+\\begin{tabular}{lccccc}
+                  & \\textbf{coef} & \\textbf{std err} & \\textbf{t} & \\textbf{P$>$$|$t$|$} & \\textbf{[95.0\\% Conf. Int.]}  \\\\
+\\midrule
+\\textbf{GNPDEFL}  &      15.0619  &       84.915     &     0.177  &         0.863        &      -177.029   207.153       \\\\
+\\textbf{GNP}      &      -0.0358  &        0.033     &    -1.070  &         0.313        &        -0.112     0.040       \\\\
+\\textbf{UNEMP}    &      -2.0202  &        0.488     &    -4.136  &         0.003        &        -3.125    -0.915       \\\\
+\\textbf{ARMED}    &      -1.0332  &        0.214     &    -4.822  &         0.001        &        -1.518    -0.549       \\\\
+\\textbf{POP}      &      -0.0511  &        0.226     &    -0.226  &         0.826        &        -0.563     0.460       \\\\
+\\textbf{YEAR}     &    1829.1515  &      455.478     &     4.016  &         0.003        &       798.788  2859.515       \\\\
+\\textbf{constant} &   -3.482e+06  &      8.9e+05     &    -3.911  &         0.004        &      -5.5e+06 -1.47e+06       \\\\
+\\bottomrule
+\\end{tabular}
+\\begin{tabular}{lclc}
+\\textbf{Omnibus:}       &  0.749 & \\textbf{  Durbin-Watson:     } &    2.559  \\\\
+\\textbf{Prob(Omnibus):} &  0.688 & \\textbf{  Jarque-Bera (JB):  } &    0.684  \\\\
+\\textbf{Skew:}          &  0.420 & \\textbf{  Prob(JB):          } &    0.710  \\\\
+\\textbf{Kurtosis:}      &  2.434 & \\textbf{  Cond. No.          } & 4.86e+09  \\\\
+\\bottomrule
+\\end{tabular}
+%\\caption{OLS Regression Results}
+\\end{center}"""
+    assert_equal(table, expected)
+
+
+
 
 if __name__=="__main__":
 

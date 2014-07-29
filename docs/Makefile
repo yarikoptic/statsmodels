@@ -8,6 +8,8 @@ PAPER         =
 BUILDDIR      = build
 TOOLSPATH	  = ../tools/
 EXAMPLEBUILD  = examples_rst.py
+NOTEBOOKBUILD = nbgenerate.py
+FOLDTOC  = fold_toc.py
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
@@ -38,13 +40,26 @@ help:
 clean:
 	-rm -rf $(BUILDDIR)/*
 	-rm -rf source/generated/
+	-rm -rf source/dev/generated/
+
+cleanall: clean cleancache
+
+cleancache:
 	-rm source/examples/generated/*
+	-rm -rf source/examples/notebooks/generated/*
+	-rm -rf ../tools/hash_dict.pickle
 
 html:
 	# generate the examples rst files
 	@echo "Generating reST from examples folder"
 	$(TOOLSPATH)$(EXAMPLEBUILD)
+	@echo "Generating notebooks from examples/notebooks folder" 
+	$(TOOLSPATH)$(NOTEBOOKBUILD)
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	$(TOOLSPATH)$(EXAMPLEBUILD)
+	$(TOOLSPATH)$(FOLDTOC) $(BUILDDIR)/html/index.html
+	$(TOOLSPATH)$(FOLDTOC) $(BUILDDIR)/html/examples/index.html ../_static
+	$(TOOLSPATH)$(FOLDTOC) $(BUILDDIR)/html/dev/index.html ../_static
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 

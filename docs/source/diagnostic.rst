@@ -24,9 +24,6 @@ consistent with these assumptions.
 The following briefly summarizes specification and diagnostics tests for
 linear regression.
 
-Note: Not all statistical tests in the sandbox are fully tested, and the API
-will still change. Some of the tests are still on the wishlist.
-
 Heteroscedasticity Tests
 ------------------------
 
@@ -180,7 +177,7 @@ estimation results are not strongly influenced even if there are many
 outliers, while most of the other measures are better in identifying
 individual outliers and might not be able to identify groups of outliers.
 
-robust regression results RLM
+:py:class:`RLM <statsmodels.robust.robust_linear_model.RLM>`
     example from example_rlm.py ::
 
         import statsmodels.api as sm
@@ -205,19 +202,19 @@ robust regression results RLM
    Some of these statistics can be calculated from an OLS results instance,
    others require that an OLS is estimated for each left out variable.
 
-   resid_press
-   resid_studentized_external
-   resid_studentized_internal
-   ess_press
-   hat_matrix_diag
-   cooks_distance - Cook's Distance `Wikipedia <http://en.wikipedia.org/wiki/Cook%27s_distance>`_ (with some other links)
-   cov_ratio
-   dfbetas
-   dffits
-   dffits_internal
-   det_cov_params_not_obsi
-   params_not_obsi
-   sigma2_not_obsi
+   - resid_press
+   - resid_studentized_external
+   - resid_studentized_internal
+   - ess_press
+   - hat_matrix_diag
+   - cooks_distance - Cook's Distance `Wikipedia <http://en.wikipedia.org/wiki/Cook%27s_distance>`_ (with some other links)
+   - cov_ratio
+   - dfbetas
+   - dffits
+   - dffits_internal
+   - det_cov_params_not_obsi
+   - params_not_obsi
+   - sigma2_not_obsi
 
 
 

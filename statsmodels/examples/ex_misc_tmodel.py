@@ -11,7 +11,7 @@ nobs = 50
 nvars = 6
 df = 3
 rvs = np.random.randn(nobs, nvars-1)
-data_exog = sm.add_constant(rvs)
+data_exog = sm.add_constant(rvs, prepend=False)
 xbeta = 0.9 + 0.1*rvs.sum(1)
 data_endog = xbeta + 0.1*np.random.standard_t(df, size=nobs)
 print 'variance of endog:', data_endog.var()
@@ -68,9 +68,9 @@ print 'using Newton'
 print resp2.params
 print resp2.bse
 
-from statsmodels.sandbox.regression.numdiff import approx_fprime1, approx_hess
+from statsmodels.tools.numdiff import approx_fprime, approx_hess
 
-hb=-approx_hess(modp.start_params, modp.loglike, epsilon=-1e-4)[0]
+hb=-approx_hess(modp.start_params, modp.loglike, epsilon=-1e-4)
 tmp = modp.loglike(modp.start_params)
 print tmp.shape
 print 'eigenvalues of numerical Hessian'

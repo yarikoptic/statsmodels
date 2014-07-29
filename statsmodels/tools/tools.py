@@ -231,18 +231,16 @@ def categorical(data, col=None, dictnames=False, drop=False, ):
 
 def _series_add_constant(data, prepend):
     const = np.ones_like(data)
-    const.name = 'const'
     if not prepend:
-        results = DataFrame([data, const]).T
-        results.columns = [data.name, 'const']
+        columns = [data.name, 'const']
     else:
-        results = DataFrame([const, data]).T
-        results.columns = ['const', data.name]
+        columns = ['const', data.name]
+    results = DataFrame({data.name : data, 'const' : const}, columns=columns)
     return results
 
 def _dataframe_add_constant(data, prepend):
     # check for const.
-    if np.any(data.var(0) == 1):
+    if np.any(data.var(0) == 0):
         return data
     if prepend:
         data.insert(0, 'const', 1)
@@ -259,7 +257,7 @@ def _pandas_add_constant(data, prepend):
 
 
 #TODO: add an axis argument to this for sysreg
-def add_constant(data, prepend=False):
+def add_constant(data, prepend=True):
     '''
     This appends a column of ones to an array if prepend==False.
 
@@ -281,30 +279,7 @@ def add_constant(data, prepend=False):
     data : array
         The original array with a constant (column of ones) as the first or
         last column.
-
-    Notes
-    -----
-
-    .. WARNING::
-       The default of prepend will be changed to True in the next release of
-       statsmodels. We recommend to use an explicit prepend in any permanent
-       code.
     '''
-    if not prepend:
-        import inspect
-        frame = inspect.currentframe().f_back
-        info = inspect.getframeinfo(frame)
-        try: # info.code_context is None on python 2.6? Why?
-            to_warn = (info.code_context is not None and
-                       'prepend' not in '\n'.join(info.code_context))
-        except: # python 2.5 compatibility
-            to_warn = 'prepend' not in '\n'.join(info[3])
-        if to_warn:
-            import warnings
-            warnings.warn("The default of `prepend` will be changed to True "
-                          "in 0.5.0, use explicit prepend",
-                          FutureWarning)
-
     if _is_using_pandas(data, None):
         # work on a copy
         return _pandas_add_constant(data.copy(), prepend)
@@ -328,18 +303,47 @@ def add_constant(data, prepend=False):
                     usemask=False, asrecarray = return_rec)
     return data
 
+
 def isestimable(C, D):
+    """ True if (Q, P) contrast `C` is estimable for (N, P) design `D`
+
+    From an Q x P contrast matrix `C` and an N x P design matrix `D`, checks if
+    the contrast `C` is estimable by looking at the rank of ``vstack([C,D])``
+    and verifying it is the same as the rank of `D`.
+
+    Parameters
+    ----------
+    C : (Q, P) array-like
+        contrast matrix. If `C` has is 1 dimensional assume shape (1, P)
+    D: (N, P) array-like
+        design matrix
+
+    Returns
+    -------
+    tf : bool
+        True if the contrast `C` is estimable on design `D`
+
+    Examples
+    --------
+    >>> D = np.array([[1, 1, 1, 0, 0, 0],
+    ...               [0, 0, 0, 1, 1, 1],
+    ...               [1, 1, 1, 1, 1, 1]]).T
+    >>> isestimable([1, 0, 0], D)
+    False
+    >>> isestimable([1, -1, 0], D)
+    True
     """
-    From an q x p contrast matrix C and an n x p design matrix D, checks
-    if the contrast C is estimable by looking at the rank of vstack([C,D]) and
-    verifying it is the same as the rank of D.
-    """
+    C = np.asarray(C)
+    D = np.asarray(D)
     if C.ndim == 1:
-        C.shape = (C.shape[0], 1)
+        C = C[None, :]
+    if C.shape[1] != D.shape[1]:
+        raise ValueError('Contrast should have %d columns' % D.shape[1])
     new = np.vstack([C, D])
     if rank(new) != rank(D):
         return False
     return True
+
 
 def recipr(X):
     """
@@ -455,12 +459,16 @@ def chain_dot(*arrs):
     """
     return reduce(lambda x, y: np.dot(y, x), arrs[::-1])
 
-def webuse(data, baseurl='http://www.stata-press.com/data/r11/'):
+def webuse(data, baseurl='http://www.stata-press.com/data/r11/', as_df=True):
     """
     Parameters
     ----------
     data : str
         Name of dataset to fetch.
+    baseurl : str
+        The base URL to the stata datasets.
+    as_df : bool
+        If True, returns a `pandas.DataFrame`
 
     Returns
     -------
@@ -477,7 +485,6 @@ def webuse(data, baseurl='http://www.stata-press.com/data/r11/'):
     error checking in response URLs.
     """
     # lazy imports
-    import pandas
     from statsmodels.iolib import genfromdta
     from urllib2 import urlopen
     from urlparse import urljoin
@@ -485,5 +492,41 @@ def webuse(data, baseurl='http://www.stata-press.com/data/r11/'):
 
     url = urljoin(baseurl, data+'.dta')
     dta = urlopen(url)
+    #TODO: this isn't Python 3 compatibile since urlopen returns bytes?
     dta = StringIO(dta.read()) # make it truly file-like
-    return genfromdta(dta)
+    if as_df: # could make this faster if we don't process dta twice?
+        from pandas import DataFrame
+        return DataFrame.from_records(genfromdta(dta))
+    else:
+        return genfromdta(dta)
+
+def nan_dot(A, B):
+    """
+    Returns np.dot(left_matrix, right_matrix) with the convention that
+    nan * 0 = 0 and nan * x = nan if x != 0.
+
+    Parameters
+    ----------
+    A, B : np.ndarrays
+    """
+    # Find out who should be nan due to nan * nonzero
+    should_be_nan_1 = np.dot(np.isnan(A), (B != 0))
+    should_be_nan_2 = np.dot((A != 0), np.isnan(B))
+    should_be_nan = should_be_nan_1 + should_be_nan_2
+
+    # Multiply after setting all nan to 0
+    # This is what happens if there were no nan * nonzero conflicts
+    C = np.dot(np.nan_to_num(A), np.nan_to_num(B))
+
+    C[should_be_nan] = np.nan
+
+    return C
+
+def maybe_unwrap_results(results):
+    """
+    Gets raw results back from wrapped results.
+
+    Can be used in plotting functions or other post-estimation type
+    routines.
+    """
+    return getattr(results, '_results', results)

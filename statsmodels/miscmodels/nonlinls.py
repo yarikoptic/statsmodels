@@ -109,7 +109,9 @@ class NonlinearLS(Model):  #or subclass a model
 
 
     '''
-    def __init__(self, endog=None, exog=None, weights=None, sigma=None):
+    #NOTE: This needs to call super for data checking
+    def __init__(self, endog=None, exog=None, weights=None, sigma=None,
+            missing='none'):
         self.endog = endog
         self.exog = exog
         if not sigma is None:
@@ -244,8 +246,7 @@ class NonlinearLS(Model):  #or subclass a model
         but is designed to do so.
 
         '''
-        from statsmodels.sandbox.regression.numdiff \
-             import approx_fprime_cs
+        from statsmodels.tools.numdiff import approx_fprime_cs
 
         jaccs_err = approx_fprime_cs(params, self._predict)
         return jaccs_err

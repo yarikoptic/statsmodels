@@ -7,9 +7,6 @@
 Sandbox
 =======
 
-Introduction
-------------
-
 This sandbox contains code that is for various resons not ready to be
 included in statsmodels proper. It contains modules from the old stats.models
 code that have not been tested, verified and updated to the new statsmodels
@@ -53,14 +50,15 @@ series analysis. Most of the models and function have been moved to
 Moving Window Statistics
 """"""""""""""""""""""""
 
+Most moving window statistics, like rolling mean, moments (up to 4th order), min,
+max, mean, and variance, are covered by the functions for `Moving (rolling)
+statistics/moments <http://pandas.pydata.org/pandas-docs/stable/computation.html#moving-rolling-statistics-moments>`_ in Pandas.
+
+
 .. autosummary::
    :toctree: generated/
 
-   tsa.movmean
-   tsa.movmoment
-   tsa.movorder
    tsa.movstat
-   tsa.movvar
 
 
 

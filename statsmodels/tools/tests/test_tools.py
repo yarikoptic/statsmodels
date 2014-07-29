@@ -4,7 +4,9 @@ Test functions for models.tools
 
 import numpy as np
 from numpy.random import standard_normal
-from numpy.testing import *
+from numpy.testing import (assert_equal, assert_array_equal,
+                           assert_almost_equal, assert_string_equal, TestCase)
+from nose.tools import (assert_true, assert_false, assert_raises)
 
 from statsmodels.datasets import longley
 from statsmodels.tools import tools
@@ -13,13 +15,13 @@ class TestTools(TestCase):
 
     def test_add_constant_list(self):
         x = range(1,5)
-        x = tools.add_constant(x, prepend=True)
+        x = tools.add_constant(x)
         y = np.asarray([[1,1,1,1],[1,2,3,4.]]).T
         assert_equal(x, y)
 
     def test_add_constant_1d(self):
         x = np.arange(1,5)
-        x = tools.add_constant(x, prepend=True)
+        x = tools.add_constant(x)
         y = np.asarray([[1,1,1,1],[1,2,3,4.]]).T
         assert_equal(x, y)
 
@@ -62,6 +64,37 @@ class TestTools(TestCase):
         Y = tools.fullrank(X)
         self.assertEquals(Y.shape, (40,8))
         self.assertEquals(tools.rank(Y), 8)
+
+
+def test_estimable():
+    rng = np.random.RandomState(20120713)
+    N, P = (40, 10)
+    X = rng.normal(size=(N, P))
+    C = rng.normal(size=(1, P))
+    isestimable = tools.isestimable
+    assert_true(isestimable(C, X))
+    assert_true(isestimable(np.eye(P), X))
+    for row in np.eye(P):
+        assert_true(isestimable(row, X))
+    X = np.ones((40, 2))
+    assert_true(isestimable([1, 1], X))
+    assert_false(isestimable([1, 0], X))
+    assert_false(isestimable([0, 1], X))
+    assert_false(isestimable(np.eye(2), X))
+    halfX = rng.normal(size=(N, 5))
+    X = np.hstack([halfX, halfX])
+    assert_false(isestimable(np.hstack([np.eye(5), np.zeros((5, 5))]), X))
+    assert_false(isestimable(np.hstack([np.zeros((5, 5)), np.eye(5)]), X))
+    assert_true(isestimable(np.hstack([np.eye(5), np.eye(5)]), X))
+    # Test array-like for design
+    XL = X.tolist()
+    assert_true(isestimable(np.hstack([np.eye(5), np.eye(5)]), XL))
+    # Test ValueError for incorrect number of columns
+    X = rng.normal(size=(N, 5))
+    for n in range(1, 4):
+        assert_raises(ValueError, isestimable, np.ones((n,)), X)
+    assert_raises(ValueError, isestimable, np.eye(4), X)
+
 
 class TestCategoricalNumerical(object):
     #TODO: use assert_raises to check that bad inputs are taken care of
@@ -310,15 +343,15 @@ def test_rec_issue302():
     arr = np.rec.fromrecords([[10], [11]], names='group')
     actual = tools.categorical(arr)
     expected = np.rec.array([(10, 1.0, 0.0), (11, 0.0, 1.0)],
-        dtype=[('group', int), ('group_10', '<f8'), ('group_11', '<f8')])
+        dtype=[('group', int), ('group_10', float), ('group_11', float)])
     assert_array_equal(actual, expected)
 
 def test_issue302():
     arr = np.rec.fromrecords([[10, 12], [11, 13]], names=['group', 'whatever'])
     actual = tools.categorical(arr, col=['group'])
     expected = np.rec.array([(10, 12, 1.0, 0.0), (11, 13, 0.0, 1.0)],
-        dtype=[('group', int), ('whatever', int), ('group_10', '<f8'),
-               ('group_11', '<f8')])
+        dtype=[('group', int), ('whatever', int), ('group_10', float),
+               ('group_11', float)])
     assert_array_equal(actual, expected)
 
 def test_pandas_const_series():
@@ -343,6 +376,8 @@ def test_pandas_const_df():
 
 def test_pandas_const_df_prepend():
     dta = longley.load_pandas().exog
+    # regression test for #1025
+    dta['UNEMP'] /= dta['UNEMP'].std()
     dta = tools.add_constant(dta, prepend=True)
     assert_string_equal('const', dta.columns[0])
     assert_equal(dta.var(0)[0], 0)
@@ -353,3 +388,74 @@ def test_chain_dot():
     B = np.arange(3,15).reshape(4,3)
     C = np.arange(5,8).reshape(3,1)
     assert_equal(tools.chain_dot(A,B,C), np.array([[1820],[4300],[6780]]))
+
+
+class TestNanDot(object):
+    @classmethod
+    def setupClass(cls):
+        nan = np.nan
+        cls.mx_1 = np.array([[nan, 1.], [2., 3.]])
+        cls.mx_2 = np.array([[nan, nan], [2., 3.]])
+        cls.mx_3 = np.array([[0., 0.], [0., 0.]])
+        cls.mx_4 = np.array([[1., 0.], [1., 0.]])
+        cls.mx_5 = np.array([[0., 1.], [0., 1.]])
+        cls.mx_6 = np.array([[1., 2.], [3., 4.]])
+
+    def test_11(self):
+        test_res = tools.nan_dot(self.mx_1, self.mx_1)
+        expected_res = np.array([[ np.nan,  np.nan], [ np.nan,  11.]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_12(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_1, self.mx_2)
+        expected_res = np.array([[ nan,  nan], [ nan,  nan]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_13(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_1, self.mx_3)
+        expected_res = np.array([[ 0.,  0.], [ 0.,  0.]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_14(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_1, self.mx_4)
+        expected_res = np.array([[ nan,   0.], [  5.,   0.]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_41(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_4, self.mx_1)
+        expected_res = np.array([[ nan,   1.], [ nan,   1.]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_23(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_2, self.mx_3)
+        expected_res = np.array([[ 0.,  0.], [ 0.,  0.]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_32(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_3, self.mx_2)
+        expected_res = np.array([[ 0.,  0.], [ 0.,  0.]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_24(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_2, self.mx_4)
+        expected_res = np.array([[ nan,   0.], [  5.,   0.]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_25(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_2, self.mx_5)
+        expected_res = np.array([[  0.,  nan], [  0.,   5.]])
+        assert_array_equal(test_res, expected_res)
+
+    def test_66(self):
+        nan = np.nan
+        test_res = tools.nan_dot(self.mx_6, self.mx_6)
+        expected_res = np.array([[  7.,  10.], [ 15.,  22.]])
+        assert_array_equal(test_res, expected_res)

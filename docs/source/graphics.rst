@@ -15,6 +15,8 @@ Goodness of Fit Plots
 
    gofplots.qqplot
    gofplots.qqline
+   gofplots.qqplot_2samples
+   gofplots.ProbPlot
 
 Boxplots
 --------
@@ -55,6 +57,9 @@ Regression Plots
    regressionplots.plot_regress_exog
    regressionplots.plot_partregress
    regressionplots.plot_ccpr
+   regressionplots.abline_plot
+   regressionplots.influence_plot
+   regressionplots.plot_leverage_resid2
 
 Time Series Plots
 -----------------
@@ -62,7 +67,8 @@ Time Series Plots
 .. autosummary::
    :toctree: generated/
 
-   tsaplots.plotacf
+   tsaplots.plot_acf
+   tsaplots.plot_pacf
 
 Other Plots
 -----------
@@ -71,3 +77,4 @@ Other Plots
    :toctree: generated/
 
    factorplots.interaction_plot
+   mosaicplot.mosaic

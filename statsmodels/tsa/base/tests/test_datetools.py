@@ -48,30 +48,110 @@ def test_regex_matching_quarter():
     npt.assert_equal(date_parser(t3), result)
     npt.assert_equal(date_parser(t4), result)
 
-def test_infer_freq():
-    from pandas import DateRange
+def test_dates_from_range():
+    results = [datetime(1959, 3, 31, 0, 0),
+               datetime(1959, 6, 30, 0, 0),
+               datetime(1959, 9, 30, 0, 0),
+               datetime(1959, 12, 31, 0, 0),
+               datetime(1960, 3, 31, 0, 0),
+               datetime(1960, 6, 30, 0, 0),
+               datetime(1960, 9, 30, 0, 0),
+               datetime(1960, 12, 31, 0, 0),
+               datetime(1961, 3, 31, 0, 0),
+               datetime(1961, 6, 30, 0, 0),
+               datetime(1961, 9, 30, 0, 0),
+               datetime(1961, 12, 31, 0, 0),
+               datetime(1962, 3, 31, 0, 0),
+               datetime(1962, 6, 30, 0, 0)]
+    dt_range = dates_from_range('1959q1', '1962q2')
+    npt.assert_(results == dt_range)
+
+    # test with starting period not the first with length
+    results = results[2:]
+    dt_range = dates_from_range('1959q3', length=len(results))
+    npt.assert_(results == dt_range)
+
+    # check month
+    results = [datetime(1959, 3, 31, 0, 0),
+               datetime(1959, 4, 30, 0, 0),
+               datetime(1959, 5, 31, 0, 0),
+               datetime(1959, 6, 30, 0, 0),
+               datetime(1959, 7, 31, 0, 0),
+               datetime(1959, 8, 31, 0, 0),
+               datetime(1959, 9, 30, 0, 0),
+               datetime(1959, 10, 31, 0, 0),
+               datetime(1959, 11, 30, 0, 0),
+               datetime(1959, 12, 31, 0, 0),
+               datetime(1960, 1, 31, 0, 0),
+               datetime(1960, 2, 28, 0, 0),
+               datetime(1960, 3, 31, 0, 0),
+               datetime(1960, 4, 30, 0, 0),
+               datetime(1960, 5, 31, 0, 0),
+               datetime(1960, 6, 30, 0, 0),
+               datetime(1960, 7, 31, 0, 0),
+               datetime(1960, 8, 31, 0, 0),
+               datetime(1960, 9, 30, 0, 0),
+               datetime(1960, 10, 31, 0, 0),
+               datetime(1960, 12, 31, 0, 0),
+               datetime(1961, 1, 31, 0, 0),
+               datetime(1961, 2, 28, 0, 0),
+               datetime(1961, 3, 31, 0, 0),
+               datetime(1961, 4, 30, 0, 0),
+               datetime(1961, 5, 31, 0, 0),
+               datetime(1961, 6, 30, 0, 0),
+               datetime(1961, 7, 31, 0, 0),
+               datetime(1961, 8, 31, 0, 0),
+               datetime(1961, 9, 30, 0, 0),
+               datetime(1961, 10, 31, 0, 0)]
+
+    dt_range = dates_from_range("1959m3", length=len(results))
+
+
+try:
+    from pandas import DatetimeIndex
+    _pandas_08x = True
+except ImportError, err:
+    _pandas_08x = False
     d1 = datetime(2008, 12, 31)
     d2 = datetime(2012, 9, 30)
 
-    b = DateRange(d1, d2, offset=_freq_to_pandas['B']).values
-    d = DateRange(d1, d2, offset=_freq_to_pandas['D']).values
-    w = DateRange(d1, d2, offset=_freq_to_pandas['W']).values
-    m = DateRange(d1, d2, offset=_freq_to_pandas['M']).values
-    a = DateRange(d1, d2, offset=_freq_to_pandas['A']).values
-    q = DateRange(d1, d2, offset=_freq_to_pandas['Q']).values
+def test_infer_freq():
+    d1 = datetime(2008, 12, 31)
+    d2 = datetime(2012, 9, 30)
+
+    if _pandas_08x:
+        b = DatetimeIndex(start=d1, end=d2, freq=_freq_to_pandas['B']).values
+        d = DatetimeIndex(start=d1, end=d2, freq=_freq_to_pandas['D']).values
+        w = DatetimeIndex(start=d1, end=d2, freq=_freq_to_pandas['W']).values
+        m = DatetimeIndex(start=d1, end=d2, freq=_freq_to_pandas['M']).values
+        a = DatetimeIndex(start=d1, end=d2, freq=_freq_to_pandas['A']).values
+        q = DatetimeIndex(start=d1, end=d2, freq=_freq_to_pandas['Q']).values
+        assert _infer_freq(w) == 'W-SUN'
+        assert _infer_freq(a) == 'A-DEC'
+        assert _infer_freq(q) == 'Q-DEC'
+        assert _infer_freq(w[:3]) == 'W-SUN'
+        assert _infer_freq(a[:3]) == 'A-DEC'
+        assert _infer_freq(q[:3]) == 'Q-DEC'
+    else:
+        from pandas import DateRange
+
+        b = DateRange(d1, d2, offset=_freq_to_pandas['B']).values
+        d = DateRange(d1, d2, offset=_freq_to_pandas['D']).values
+        w = DateRange(d1, d2, offset=_freq_to_pandas['W']).values
+        m = DateRange(d1, d2, offset=_freq_to_pandas['M']).values
+        a = DateRange(d1, d2, offset=_freq_to_pandas['A']).values
+        q = DateRange(d1, d2, offset=_freq_to_pandas['Q']).values
+        assert _infer_freq(w) == 'W'
+        assert _infer_freq(a) == 'A'
+        assert _infer_freq(q) == 'Q'
+        assert _infer_freq(w[:3]) == 'W'
+        assert _infer_freq(a[:3]) == 'A'
+        assert _infer_freq(q[:3]) == 'Q'
 
     assert _infer_freq(b[2:5]) == 'B'
     assert _infer_freq(b[:3]) == 'D'
-
     assert _infer_freq(b) == 'B'
     assert _infer_freq(d) == 'D'
-    assert _infer_freq(w) == 'W'
     assert _infer_freq(m) == 'M'
-    assert _infer_freq(a) == 'A'
-    assert _infer_freq(q) == 'Q'
     assert _infer_freq(d[:3]) == 'D'
-    assert _infer_freq(w[:3]) == 'W'
     assert _infer_freq(m[:3]) == 'M'
-    assert _infer_freq(a[:3]) == 'A'
-    assert _infer_freq(q[:3]) == 'Q'
-

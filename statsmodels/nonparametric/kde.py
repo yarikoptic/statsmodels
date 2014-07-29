@@ -9,19 +9,20 @@ Racine, Jeff. (2008) "Nonparametric Econometrics: A Primer," Foundation and
 
 http://en.wikipedia.org/wiki/Kernel_%28statistics%29
 
-Silverman, B.W.  Density Estimation for Statistics and Data Anaylsis.
+Silverman, B.W.  Density Estimation for Statistics and Data Analysis.
 """
+from __future__ import absolute_import
+# for 2to3 with extensions
+import warnings
+
 import numpy as np
 from scipy import integrate, stats
 from statsmodels.sandbox.nonparametric import kernels
 from statsmodels.tools.decorators import (cache_readonly,
                                                     resettable_cache)
-import bandwidths
-from kdetools import (forrt, revrt, silverman_transform, counts)
-try:
-    from fast_linbin import linbin
-except ImportError:
-    from kdetools import linbin
+from . import bandwidths
+from .kdetools import (forrt, revrt, silverman_transform, counts)
+from .linbin import fast_linbin
 
 #### Kernels Switch for estimators ####
 
@@ -39,9 +40,10 @@ def _checkisfit(self):
 
 #### Kernel Density Estimator Class ###
 
-class KDE(object):
+
+class KDEUnivariate(object):
     """
-    Kernel Density Estimator
+    Univariate Kernel Density Estimator.
 
     Parameters
     ----------
@@ -53,8 +55,29 @@ class KDE(object):
     If cdf, sf, cumhazard, or entropy are computed, they are computed based on
     the definition of the kernel rather than the FFT approximation, even if
     the density is fit with FFT = True.
+
+    `KDEUnivariate` is much faster than `KDEMultivariate`, due to its FFT-based
+    implementation.  It should be preferred for univariate, continuous data.
+    `KDEMultivariate` also supports mixed data.
+
+    See Also
+    --------
+    KDEMultivariate
+    kdensity, kdensityfft
+
+    Examples
+    --------
+    >>> import statsmodels.api as sm
+    >>> import matplotlib.pyplot as plt
+
+    >>> nobs = 300
+    >>> np.random.seed(1234)  # Seed random generator
+    >>> dens = sm.nonparametric.KDEUnivariate(np.random.normal(size=nobs))
+    >>> dens.fit()
+    >>> plt.plot(dens.cdf)
+    >>> plt.show()
+
     """
-    _cache = resettable_cache()
 
     def __init__(self, endog):
         self.endog = np.asarray(endog)
@@ -62,7 +85,7 @@ class KDE(object):
     def fit(self, kernel="gau", bw="scott", fft=True, weights=None,
             gridsize=None, adjust=1, cut=3, clip=(-np.inf, np.inf)):
         """
-        Attach the density estimate to the KDE class.
+        Attach the density estimate to the KDEUnivariate class.
 
         Parameters
         ----------
@@ -126,6 +149,8 @@ class KDE(object):
         self.bw = bw
         self.kernel = kernel_switch[kernel](h=bw) # we instantiate twice,
                                                 # should this passed to funcs?
+        # put here to ensure empty cache after re-fit with new options
+        self._cache = resettable_cache()
 
     @cache_readonly
     def cdf(self):
@@ -232,12 +257,20 @@ class KDE(object):
         _checkisfit(self)
         return self.kernel.density(self.endog, point)
 
+
+class KDE(KDEUnivariate):
+    def __init__(self, endog):
+        self.endog = np.asarray(endog)
+        warnings.warn("KDE is deprecated and will be removed in 0.6, "
+                      "use KDEUnivariate instead", FutureWarning)
+
+
 #### Kernel Density Estimator Functions ####
 
 def kdensity(X, kernel="gau", bw="scott", weights=None, gridsize=None,
              adjust=1, clip=(-np.inf,np.inf), cut=3, retgrid=True):
     """
-    Rosenblatz-Parzen univariate kernel desnity estimator
+    Rosenblatt-Parzen univariate kernel density estimator.
 
     Parameters
     ----------
@@ -343,7 +376,7 @@ def kdensity(X, kernel="gau", bw="scott", weights=None, gridsize=None,
 def kdensityfft(X, kernel="gau", bw="scott", weights=None, gridsize=None,
                 adjust=1, clip=(-np.inf,np.inf), cut=3, retgrid=True):
     """
-    Rosenblatz-Parzen univariate kernel desnity estimator
+    Rosenblatt-Parzen univariate kernel density estimator
 
     Parameters
     ----------
@@ -448,7 +481,7 @@ def kdensityfft(X, kernel="gau", bw="scott", weights=None, gridsize=None,
 #    binned /= (nobs)*delta**2 # normalize binned to sum to 1/delta
 
 #NOTE: THE ABOVE IS WRONG, JUST TRY WITH LINEAR BINNING
-    binned = linbin(X,a,b,gridsize)/(delta*nobs)
+    binned = fast_linbin(X,a,b,gridsize)/(delta*nobs)
 
     # step 2 compute FFT of the weights, using Munro (1976) FFT convention
     y = forrt(binned)
@@ -486,7 +519,7 @@ if __name__ == "__main__":
 #f2py -c denest.pyf ./fft.o denest.f
 
     try:
-        from denest2 import denest
+        from denest2 import denest # @UnresolvedImport
         a = -3.4884382032045504
         b = 4.3671504686785605
         RANGE = b - a

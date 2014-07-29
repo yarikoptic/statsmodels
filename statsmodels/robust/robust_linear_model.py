@@ -32,23 +32,19 @@ def _check_convergence(criterion, iteration, tol, maxiter):
                 criterion[iteration-1]) > tol) and iteration < maxiter)
 
 class RLM(base.LikelihoodModel):
-    """
+    __doc__ = """
     Robust Linear Models
 
     Estimate a robust linear model via iteratively reweighted least squares
     given a robust criterion estimator.
 
-    Parameters
-    ----------
-    endog : array-like
-        1d endogenous response variable
-    exog : array-like
-        n x p exogenous design matrix
+    %(params)s
     M : statsmodels.robust.norms.RobustNorm, optional
         The robust criterion function for downweighting outliers.
         The current options are LeastSquares, HuberT, RamsayE, AndrewWave,
         TrimmedMean, Hampel, and TukeyBiweight.  The default is HuberT().
         See statsmodels.robust.norms for more information.
+    %(extra_params)s
 
     Notes
     -----
@@ -110,12 +106,13 @@ class RLM(base.LikelihoodModel):
 
     >>> rlm_hamp_hub.params
     array([  0.73175452,   1.25082038,  -0.14794399, -40.27122257])
+    """ % {'params' : base._model_params_doc,
+            'extra_params' : base._missing_param_doc}
 
-    """
-
-    def __init__(self, endog, exog, M=norms.HuberT()):
+    def __init__(self, endog, exog, M=norms.HuberT(), missing='none'):
         self.M = M
-        super(base.LikelihoodModel, self).__init__(endog, exog)
+        super(base.LikelihoodModel, self).__init__(endog, exog,
+                missing=missing)
         self._initialize()
         #things to remove_data
         self._data_attr.extend(['weights', 'pinv_wexog'])
@@ -194,7 +191,7 @@ class RLM(base.LikelihoodModel):
             if self.scale_est.lower() == 'stand_mad':
                 return scale.stand_mad(resid)
         elif isinstance(self.scale_est, scale.HuberScale):
-            return scale.hubers_scale(self.df_resid, self.nobs, resid)
+            return self.scale_est(self.df_resid, self.nobs, resid)
         else:
             return scale.scale_est(self, resid)**2
 
@@ -449,15 +446,6 @@ class RLMResults(base.LikelihoodModelResults):
                     *np.dot(np.dot(W_inv, np.dot(model.exog.T,model.exog)),\
                     W_inv)
 
-    def t(self):
-        """
-        Deprecated method to return t-values. Use tvalues attribute instead.
-        """
-        import warnings
-        warnings.warn("t will be removed in the next release. Use attribute "
-                "tvalues instead", FutureWarning)
-        return self.tvalues
-
     @cache_readonly
     def pvalues(self):
         return stats.norm.sf(np.abs(self.tvalues))*2
@@ -518,7 +506,7 @@ class RLMResults(base.LikelihoodModelResults):
         smry = Summary()
         smry.add_table_2cols(self, gleft=top_left, gright=top_right, #[],
                           yname=yname, xname=xname, title=title)
-        smry.add_table_params(self, yname=yname, xname=xname, alpha=.05,
+        smry.add_table_params(self, yname=yname, xname=xname, alpha=alpha,
                              use_t=False)
 
         #diagnostic table is not used yet
@@ -537,6 +525,46 @@ parameters, then the fit options might not be the correct ones anymore .'''
             smry.add_extra_txt(etext)
 
         return smry
+
+
+    def summary2(self, xname=None, yname=None, title=None, alpha=.05,
+                float_format="%.4f"):
+        """Experimental summary function for regression results
+
+        Parameters
+        -----------
+        xname : List of strings of length equal to the number of parameters
+            Names of the independent variables (optional)
+        yname : string
+            Name of the dependent variable (optional)
+        title : string, optional
+            Title for the top table. If not None, then this replaces the
+            default title
+        alpha : float
+            significance level for the confidence intervals
+        float_format: string
+            print format for floats in parameters summary
+
+        Returns
+        -------
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
+
+        See Also
+        --------
+        statsmodels.iolib.summary.Summary : class to hold summary
+            results
+
+        """
+        # Summary
+        from statsmodels.iolib import summary2
+        smry = summary2.Summary()
+        smry.add_base(results=self, alpha=alpha, float_format=float_format,
+                xname=xname, yname=yname, title=title)
+
+        return smry
+
 
 class RLMResultsWrapper(lm.RegressionResultsWrapper):
     pass
