@@ -1,5 +1,5 @@
 '''
-Defines the link functions to be used with GLM families.
+Defines the link functions to be used with GLM and GEE families.
 '''
 
 import numpy as np
@@ -63,6 +63,39 @@ class Link(object):
         The value of the derivative of the link function g'(p)
         """
         return NotImplementedError
+
+
+    def deriv2(self, p):
+        """Second derivative of the link function g''(p)
+
+        implemented through numerical differentiation
+        """
+        from statsmodels.tools.numdiff import approx_fprime_cs
+        # TODO: workaround proplem with numdiff for 1d
+        return np.diag(approx_fprime_cs(p, self.deriv))
+
+
+    def inverse_deriv(self, z):
+        """
+        Derivative of the inverse link function g^(-1)(z).
+
+        Notes
+        -----
+        This reference implementation gives the correct result but it inefficient,
+        so it can be overriden in subclasses.
+
+        Parameters
+        ----------
+        z : array-like
+            `z` is usually the linear predictor for a GLM or GEE model.
+
+        Returns
+        -------
+        The value of the derivative of the inverse of the link function
+
+        """
+        return 1/self.deriv(self.inverse(z))
+
 
 class Logit(Link):
     """
@@ -160,6 +193,24 @@ class Logit(Link):
         p = self._clean(p)
         return 1. / (p * (1 - p))
 
+    def inverse_deriv(self, z):
+        """
+        Derivative of the inverse of the logit transform
+
+        Parameters
+        ----------
+        z : array-like
+            `z` is usually the linear predictor for a GLM or GEE model.
+
+        Returns
+        -------
+        The value of the derivative of the inverse of the logit function
+
+        """
+        t = np.exp(z)
+        return t/(1+t)**2
+
+
 #logit = Logit()
 class logit(Logit):
     pass
@@ -246,6 +297,22 @@ class Power(Link):
         g'(`p`) = `power` * `p`**(`power` - 1)
         """
         return self.power * np.power(p, self.power - 1)
+
+    def inverse_deriv(self, z):
+        """
+        Derivative of the inverse of the power transform
+
+        Parameters
+        ----------
+        z : array-like
+            `z` is usually the linear predictor for a GLM or GEE model.
+
+        Returns
+        -------
+        The value of the derivative of the inverse of the power transform function
+
+        """
+        return np.power(z, (1 - self.power)/self.power) / self.power
 
 #inverse = Power(power=-1.)
 class inverse_power(Power):
@@ -377,6 +444,21 @@ class Log(Link):
         p = self._clean(p)
         return 1. / p
 
+    def inverse_deriv(self, z):
+        """
+        Derivative of the inverse of the log transform link function
+
+        Parameters
+        ----------
+        z : array
+            The inverse of the link function at `p`
+
+        Returns
+        -------
+        The value of the derivative of the inverse of the logit function
+        """
+        return np.exp(z)
+
 class log(Log):
     """
     The log transform
@@ -470,6 +552,23 @@ class CDFLink(Logit):
         p = self._clean(p)
         return 1. / self.dbn.pdf(self.dbn.ppf(p))
 
+    def inverse_deriv(self, z):
+        """
+        Derivative of the inverse of the CDF transformation link function
+
+        Parameters
+        ----------
+        z : array
+            The inverse of the link function at `p`
+
+        Returns
+        -------
+        The value of the derivative of the inverse of the logit function
+        """
+        return 1/self.deriv(self.inverse(z))
+
+
+
 #probit = CDFLink()
 class probit(CDFLink):
     """
@@ -552,7 +651,7 @@ class CLogLog(Logit):
 
     def deriv(self, p):
         """
-        Derivatve of C-Log-Log transform link function
+        Derivative of C-Log-Log transform link function
 
         Parameters
         ----------
@@ -570,6 +669,21 @@ class CLogLog(Logit):
         """
         p = self._clean(p)
         return 1. / ((p-1)*(np.log(1-p)))
+
+    def inverse_deriv(self, z):
+        """
+        Derivative of the inverse of the C-Log-Log transform link function
+
+        Parameters
+        ----------
+        z : array-like
+            The value of the inverse of the CLogLog link function at `p`
+
+        Returns
+        -------
+        The derivative of the inverse of the CLogLog link function
+        """
+        return np.exp(z - np.exp(z))
 
 class cloglog(CLogLog):
     """
@@ -602,7 +716,7 @@ class NegativeBinomial(object):
     def _clean(self, x):
         return np.clip(x, FLOAT_EPS, np.inf)
 
-    def __call__(self, x):
+    def __call__(self, p):
         '''
         Negative Binomial transform link function
 
@@ -661,6 +775,22 @@ class NegativeBinomial(object):
         g'(x) = 1/(x+alpha*x^2)
         '''
         return 1/(p+self.alpha*p**2)
+
+    def inverse_deriv(self, z):
+        '''
+        Derivative of the inverse of the negative binomial transform
+
+        Parameters
+        -----------
+        z : array-like
+            Usually the linear predictor for a GLM or GEE model
+
+        Returns
+        -------
+        The value of the inverse of the derivative of the negative binomial link
+        '''
+        t = np.exp(z)
+        return t / (self.alpha * (1-t)**2)
 
 class nbinom(NegativeBinomial):
     """

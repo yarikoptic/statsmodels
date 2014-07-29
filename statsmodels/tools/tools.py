@@ -1,7 +1,8 @@
 '''
 Utility functions models code
 '''
-
+from statsmodels.compat.python import (reduce, lzip, lmap, asstr2, urlopen, urljoin,
+                                StringIO, range)
 import numpy as np
 import numpy.lib.recfunctions as nprf
 import numpy.linalg as L
@@ -10,7 +11,7 @@ from scipy.linalg import svdvals
 from statsmodels.distributions import (ECDF, monotone_fn_inverter,
                                                StepFunction)
 from statsmodels.tools.data import _is_using_pandas
-from statsmodels.compatnp.py3k import asstr2
+from statsmodels.compat.numpy import np_matrix_rank
 from pandas import DataFrame
 
 def _make_dictnames(tmp_arr, offset=0):
@@ -182,9 +183,9 @@ def categorical(data, col=None, dictnames=False, drop=False, ):
             if len(data.dtype) <= 1:
                 if tmp_dummy.shape[0] < tmp_dummy.shape[1]:
                     tmp_dummy = np.squeeze(tmp_dummy).swapaxes(1,0)
-                dt = zip(tmp_arr, [tmp_dummy.dtype.str]*len(tmp_arr))
+                dt = lzip(tmp_arr, [tmp_dummy.dtype.str]*len(tmp_arr))
                 # preserve array type
-                return np.array(map(tuple, tmp_dummy.tolist()),
+                return np.array(lmap(tuple, tmp_dummy.tolist()),
                         dtype=dt).view(type(data))
 
             data=nprf.drop_fields(data, col, usemask=False,
@@ -340,9 +341,32 @@ def isestimable(C, D):
     if C.shape[1] != D.shape[1]:
         raise ValueError('Contrast should have %d columns' % D.shape[1])
     new = np.vstack([C, D])
-    if rank(new) != rank(D):
+    if np_matrix_rank(new) != np_matrix_rank(D):
         return False
     return True
+
+
+def pinv_extended(X, rcond=1e-15):
+    """
+    Return the pinv of an array X as well as the singular values
+    used in computation.
+
+    Code adapted from numpy.
+    """
+    X = np.asarray(X)
+    X = X.conjugate()
+    u, s, vt = np.linalg.svd(X, 0)
+    s_orig = np.copy(s)
+    m = u.shape[0]
+    n = vt.shape[1]
+    cutoff = rcond * np.maximum.reduce(s)
+    for i in range(min(n, m)):
+        if s[i] > cutoff:
+            s[i] = 1./s[i]
+        else:
+            s[i] = 0.
+    res = np.dot(np.transpose(vt), np.multiply(s[:, np.core.newaxis], np.transpose(u)))
+    return res, s_orig
 
 
 def recipr(X):
@@ -376,6 +400,9 @@ def rank(X, cond=1.0e-12):
     Return the rank of a matrix X based on its generalized inverse,
     not the SVD.
     """
+    from warnings import warn
+    warn("rank is deprecated and will be removed in 0.7."
+         " Use np.linalg.matrix_rank instead.", FutureWarning)
     X = np.asarray(X)
     if len(X.shape) == 2:
         D = svdvals(X)
@@ -393,7 +420,7 @@ def fullrank(X, r=None):
     """
 
     if r is None:
-        r = rank(X)
+        r = np_matrix_rank(X)
 
     V, D, U = L.svd(X, full_matrices=0)
     order = np.argsort(D)
@@ -486,9 +513,6 @@ def webuse(data, baseurl='http://www.stata-press.com/data/r11/', as_df=True):
     """
     # lazy imports
     from statsmodels.iolib import genfromdta
-    from urllib2 import urlopen
-    from urlparse import urljoin
-    from StringIO import StringIO
 
     url = urljoin(baseurl, data+'.dta')
     dta = urlopen(url)
@@ -530,3 +554,11 @@ def maybe_unwrap_results(results):
     routines.
     """
     return getattr(results, '_results', results)
+
+class Bunch(dict):
+    """
+    Returns a dict-like object with keys accessible via attribute lookup.
+    """
+    def __init__(self, **kw):
+        dict.__init__(self, kw)
+        self.__dict__  = self

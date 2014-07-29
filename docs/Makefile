@@ -7,6 +7,7 @@ SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = build
 TOOLSPATH	  = ../tools/
+DATASETBUILD  = dataset_rst.py
 EXAMPLEBUILD  = examples_rst.py
 NOTEBOOKBUILD = nbgenerate.py
 FOLDTOC  = fold_toc.py
@@ -48,17 +49,24 @@ cleancache:
 	-rm source/examples/generated/*
 	-rm -rf source/examples/notebooks/generated/*
 	-rm -rf ../tools/hash_dict.pickle
+	-rm -rf source/datasets/generated/*
+
+notebooks:
+	@echo "Generating notebooks from examples/notebooks folder" 
+	$(TOOLSPATH)$(NOTEBOOKBUILD)
 
 html:
 	# generate the examples rst files
 	@echo "Generating reST from examples folder"
-	$(TOOLSPATH)$(EXAMPLEBUILD)
+	#$(TOOLSPATH)$(EXAMPLEBUILD)
 	@echo "Generating notebooks from examples/notebooks folder" 
 	$(TOOLSPATH)$(NOTEBOOKBUILD)
+	@echo "Generating datasets from installed statsmodels.datasets"
+	$(TOOLSPATH)$(DATASETBUILD)
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
-	$(TOOLSPATH)$(EXAMPLEBUILD)
+	#$(TOOLSPATH)$(EXAMPLEBUILD)
 	$(TOOLSPATH)$(FOLDTOC) $(BUILDDIR)/html/index.html
-	$(TOOLSPATH)$(FOLDTOC) $(BUILDDIR)/html/examples/index.html ../_static
+	#$(TOOLSPATH)$(FOLDTOC) $(BUILDDIR)/html/examples/index.html ../_static
 	$(TOOLSPATH)$(FOLDTOC) $(BUILDDIR)/html/dev/index.html ../_static
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."

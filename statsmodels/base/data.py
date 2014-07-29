@@ -2,26 +2,20 @@
 Base tools for handling various kinds of data structures, attaching metadata to
 results, and doing data cleaning
 """
-
+from statsmodels.compat.python import reduce, iteritems, lmap, zip, range
+from statsmodels.compat.numpy import np_matrix_rank
 import numpy as np
 from pandas import DataFrame, Series, TimeSeries, isnull
-from statsmodels.tools.decorators import (resettable_cache,
-                cache_readonly, cache_writable)
+from statsmodels.tools.decorators import (resettable_cache, cache_readonly,
+                                          cache_writable)
 import statsmodels.tools.data as data_util
+from statsmodels.tools.sm_exceptions import MissingDataError
 
-try:
-    reduce
-    pass
-except NameError:
-    #python 3.2
-    from functools import reduce
-
-class MissingDataError(Exception):
-    pass
 
 def _asarray_2dcolumns(x):
     if np.asarray(x).ndim > 1 and np.asarray(x).squeeze().ndim == 1:
         return
+
 
 def _asarray_2d_null_rows(x):
     """
@@ -32,8 +26,8 @@ def _asarray_2d_null_rows(x):
     #input
     x = np.asarray(x)
     if x.ndim == 1:
-        x = x[:,None]
-    return np.any(isnull(x), axis=1)[:,None]
+        x = x[:, None]
+    return np.any(isnull(x), axis=1)[:, None]
 
 
 def _nan_rows(*arrs):
@@ -44,6 +38,7 @@ def _nan_rows(*arrs):
     """
     if len(arrs) == 1:
         arrs += ([[False]],)
+
     def _nan_row_maybe_two_inputs(x, y):
         # check for dtype bc dataframe has dtypes
         x_is_boolean_array = hasattr(x, 'dtype') and x.dtype == bool and x
@@ -51,24 +46,25 @@ def _nan_rows(*arrs):
                              (x_is_boolean_array | _asarray_2d_null_rows(y)))
     return reduce(_nan_row_maybe_two_inputs, arrs).squeeze()
 
+
 class ModelData(object):
     """
     Class responsible for handling input data and extracting metadata into the
     appropriate form
     """
     def __init__(self, endog, exog=None, missing='none', hasconst=None,
-                       **kwargs):
+                 **kwargs):
         if missing != 'none':
-            arrays, nan_idx = self._handle_missing(endog, exog, missing,
-                                                       **kwargs)
+            arrays, nan_idx = self.handle_missing(endog, exog, missing,
+                                                  **kwargs)
             self.missing_row_idx = nan_idx
-            self.__dict__.update(arrays) # attach all the data arrays
+            self.__dict__.update(arrays)  # attach all the data arrays
             self.orig_endog = self.endog
             self.orig_exog = self.exog
             self.endog, self.exog = self._convert_endog_exog(self.endog,
-                    self.exog)
+                                                             self.exog)
         else:
-            self.__dict__.update(kwargs) # attach the extra arrays anyway
+            self.__dict__.update(kwargs)  # attach the extra arrays anyway
             self.orig_endog = endog
             self.orig_exog = exog
             self.endog, self.exog = self._convert_endog_exog(endog, exog)
@@ -86,25 +82,69 @@ class ModelData(object):
             else:
                 self.k_constant = 0
                 self.const_idx = None
+        elif self.exog is None:
+            self.const_idx = None
+            self.k_constant = 0
         else:
-            try: # to detect where the constant is
-                const_idx = np.where(self.exog.var(axis = 0) == 0)[0].squeeze()
-                self.k_constant = const_idx.size
-                if self.k_constant > 1:
-                    raise ValueError("More than one constant detected.")
-                else:
-                    self.const_idx = const_idx
-            except: # should be an index error but who knows, means no const
-                self.const_idx = None
-                self.k_constant = 0
+            # detect where the constant is
+            check_implicit = False
+            const_idx = np.where(self.exog.ptp(axis=0) == 0)[0].squeeze()
+            self.k_constant = const_idx.size
 
-    def _drop_nans(self, x, nan_mask):
+            if self.k_constant == 1:
+                if self.exog[:, const_idx].mean() != 0:
+                    self.const_idx = const_idx
+                else:
+                    # we only have a zero column and no other constant
+                    check_implicit = True
+            elif self.k_constant > 1:
+                # we have more than one constant column
+                # look for ones
+                values = []  # keep values if we need != 0
+                for idx in const_idx:
+                    value = self.exog[:, idx].mean()
+                    if value == 1:
+                        self.k_constant = 1
+                        self.const_idx = idx
+                        break
+                    values.append(value)
+                else:
+                    # we didn't break, no column of ones
+                    pos = (np.array(values) != 0)
+                    if pos.any():
+                        # take the first nonzero column
+                        self.k_constant = 1
+                        self.const_idx = const_idx[pos.argmax()]
+                    else:
+                        # only zero columns
+                        check_implicit = True
+            elif self.k_constant == 0:
+                check_implicit = True
+            else:
+                # shouldn't be here
+                pass
+
+            if check_implicit:
+                # look for implicit constant
+                # Compute rank of augmented matrix
+                augmented_exog = np.column_stack(
+                            (np.ones(self.exog.shape[0]), self.exog))
+                rank_augm = np_matrix_rank(augmented_exog)
+                rank_orig = np_matrix_rank(self.exog)
+                self.k_constant = int(rank_orig == rank_augm)
+                self.const_idx = None
+
+
+    @classmethod
+    def _drop_nans(cls, x, nan_mask):
         return x[nan_mask]
 
-    def _drop_nans_2d(self, x, nan_mask):
+    @classmethod
+    def _drop_nans_2d(cls, x, nan_mask):
         return x[nan_mask][:, nan_mask]
 
-    def _handle_missing(self, endog, exog, missing, **kwargs):
+    @classmethod
+    def handle_missing(cls, endog, exog, missing, **kwargs):
         """
         This returns a dictionary with keys endog, exog and the keys of
         kwargs. It preserves Nones.
@@ -123,7 +163,7 @@ class ModelData(object):
         combined_2d = ()
         combined_2d_names = []
         if len(kwargs):
-            for key, value_array in kwargs.iteritems():
+            for key, value_array in iteritems(kwargs):
                 if value_array is None or value_array.ndim == 0:
                     none_array_names += [key]
                     continue
@@ -141,27 +181,36 @@ class ModelData(object):
                     combined_2d_names += [key]
                 else:
                     raise ValueError("Arrays with more than 2 dimensions "
-                            "aren't yet handled")
+                                     "aren't yet handled")
 
         nan_mask = _nan_rows(*combined)
         if combined_2d:
-            nan_mask = _nan_rows(*(nan_mask[:,None],) + combined_2d)
+            nan_mask = _nan_rows(*(nan_mask[:, None],) + combined_2d)
 
-        if missing == 'raise' and np.any(nan_mask):
+        if not np.any(nan_mask):  # no missing don't do anything
+            combined = dict(zip(combined_names, combined))
+            if combined_2d:
+                combined.update(dict(zip(combined_2d_names, combined_2d)))
+            if none_array_names:
+                combined.update(dict(zip(none_array_names,
+                                         [None] * len(none_array_names))))
+
+            return combined, []
+
+        elif missing == 'raise':
             raise MissingDataError("NaNs were encountered in the data")
 
         elif missing == 'drop':
             nan_mask = ~nan_mask
-            drop_nans = lambda x : self._drop_nans(x, nan_mask)
-            drop_nans_2d = lambda x : self._drop_nans_2d(x, nan_mask)
-            combined = dict(zip(combined_names, map(drop_nans, combined)))
+            drop_nans = lambda x: cls._drop_nans(x, nan_mask)
+            drop_nans_2d = lambda x: cls._drop_nans_2d(x, nan_mask)
+            combined = dict(zip(combined_names, lmap(drop_nans, combined)))
             if combined_2d:
                 combined.update(dict(zip(combined_2d_names,
-                                         map(drop_nans_2d, combined_2d))))
+                                         lmap(drop_nans_2d, combined_2d))))
             if none_array_names:
                 combined.update(dict(zip(none_array_names,
-                                         [None]*len(none_array_names)
-                                         )))
+                                         [None] * len(none_array_names))))
             return combined, np.where(~nan_mask)[0].tolist()
         else:
             raise ValueError("missing option %s not understood" % missing)
@@ -235,7 +284,7 @@ class ModelData(object):
         if data_util._is_structured_ndarray(endog):
             endog = data_util.struct_to_ndarray(endog)
         endog = np.asarray(endog)
-        if len(endog) == 1: # never squeeze to a scalar
+        if len(endog) == 1:  # never squeeze to a scalar
             if endog.ndim == 1:
                 return endog
             elif endog.ndim > 1:
@@ -287,35 +336,37 @@ class ModelData(object):
     def attach_dates(self, result):
         return result
 
+
 class PatsyData(ModelData):
     def _get_names(self, arr):
         return arr.design_info.column_names
+
 
 class PandasData(ModelData):
     """
     Data handling class which knows how to reattach pandas metadata to model
     results
     """
-    def _drop_nans(self, x, nan_mask):
+    @classmethod
+    def _drop_nans(cls, x, nan_mask):
         if hasattr(x, 'ix'):
             return x.ix[nan_mask]
-        else: # extra arguments could be plain ndarrays
-            return super(PandasData, self)._drop_nans(x, nan_mask)
+        else:  # extra arguments could be plain ndarrays
+            return super(PandasData, cls)._drop_nans(x, nan_mask)
 
-    def _drop_nans_2d(self, x, nan_mask):
+    @classmethod
+    def _drop_nans_2d(cls, x, nan_mask):
         if hasattr(x, 'ix'):
             return x.ix[nan_mask].ix[:, nan_mask]
         else:  # extra arguments could be plain ndarrays
-            return super(PandasData, self)._drop_nans_2d(x, nan_mask)
+            return super(PandasData, cls)._drop_nans_2d(x, nan_mask)
 
     def _check_integrity(self):
-        try:
-            endog, exog = self.orig_endog, self.orig_exog
-            # exog can be None and we could be upcasting one or the other
-            if exog is not None and (hasattr(endog, 'index') and
-                    hasattr(exog, 'index')):
-                assert self.orig_endog.index.equals(self.orig_exog.index)
-        except AssertionError:
+        endog, exog = self.orig_endog, self.orig_exog
+        # exog can be None and we could be upcasting one or the other
+        if (exog is not None and
+                (hasattr(endog, 'index') and hasattr(exog, 'index')) and
+                not self.orig_endog.index.equals(self.orig_exog.index)):
             raise ValueError("The indices for endog and exog are not aligned")
         super(PandasData, self)._check_integrity()
 
@@ -333,7 +384,7 @@ class PandasData(ModelData):
         # if it needs a squeeze, the bug is elsewhere
         if result.ndim <= 1:
             return Series(result, index=self.xnames)
-        else: # for e.g., confidence intervals
+        else:  # for e.g., confidence intervals
             return DataFrame(result, index=self.xnames)
 
     def attach_columns_eq(self, result):
@@ -350,20 +401,22 @@ class PandasData(ModelData):
         # at the front, for AR lags, for example
         if result.squeeze().ndim == 1:
             return Series(result, index=self.row_labels[-len(result):])
-        else: # this is for VAR results, may not be general enough
+        else:  # this is for VAR results, may not be general enough
             return DataFrame(result, index=self.row_labels[-len(result):],
-                                columns=self.ynames)
+                             columns=self.ynames)
 
     def attach_dates(self, result):
         return TimeSeries(result, index=self.predict_dates)
 
+
 def _make_endog_names(endog):
     if endog.ndim == 1 or endog.shape[1] == 1:
         ynames = ['y']
-    else: # for VAR
+    else:  # for VAR
         ynames = ['y%d' % (i+1) for i in range(endog.shape[1])]
 
     return ynames
+
 
 def _make_exog_names(exog):
     exog_var = exog.var(0)
@@ -371,23 +424,27 @@ def _make_exog_names(exog):
         # assumes one constant in first or last position
         # avoid exception if more than one constant
         const_idx = exog_var.argmin()
-        exog_names = ['x%d' % i for i in range(1,exog.shape[1])]
+        exog_names = ['x%d' % i for i in range(1, exog.shape[1])]
         exog_names.insert(const_idx, 'const')
     else:
-        exog_names = ['x%d' % i for i in range(1,exog.shape[1]+1)]
+        exog_names = ['x%d' % i for i in range(1, exog.shape[1]+1)]
 
     return exog_names
 
-def handle_data(endog, exog, missing='none', hasconst=None, **kwargs):
+
+def handle_missing(endog, exog=None, missing='none', **kwargs):
+    klass = handle_data_class_factory(endog, exog)
+    if missing == 'none':
+        ret_dict = dict(endog=endog, exog=exog)
+        ret_dict.update(kwargs)
+        return ret_dict, None
+    return klass.handle_missing(endog, exog, missing=missing, **kwargs)
+
+
+def handle_data_class_factory(endog, exog):
     """
     Given inputs
     """
-    # deal with lists and tuples up-front
-    if isinstance(endog, (list, tuple)):
-        endog = np.asarray(endog)
-    if isinstance(exog, (list, tuple)):
-        exog = np.asarray(exog)
-
     if data_util._is_using_ndarray_type(endog, exog):
         klass = ModelData
     elif data_util._is_using_pandas(endog, exog):
@@ -400,5 +457,16 @@ def handle_data(endog, exog, missing='none', hasconst=None, **kwargs):
     else:
         raise ValueError('unrecognized data structures: %s / %s' %
                          (type(endog), type(exog)))
+    return klass
 
-    return klass(endog, exog=exog, missing=missing, hasconst=hasconst, **kwargs)
+
+def handle_data(endog, exog, missing='none', hasconst=None, **kwargs):
+    # deal with lists and tuples up-front
+    if isinstance(endog, (list, tuple)):
+        endog = np.asarray(endog)
+    if isinstance(exog, (list, tuple)):
+        exog = np.asarray(exog)
+
+    klass = handle_data_class_factory(endog, exog)
+    return klass(endog, exog=exog, missing=missing, hasconst=hasconst,
+                 **kwargs)

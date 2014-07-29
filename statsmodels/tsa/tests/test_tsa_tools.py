@@ -2,6 +2,7 @@
 
 '''
 
+from statsmodels.compat.python import zip
 import numpy as np
 from numpy.testing import assert_array_almost_equal, assert_equal
 import statsmodels.api as sm
@@ -9,8 +10,8 @@ import statsmodels.tsa.stattools as tsa
 import statsmodels.tsa.tsatools as tools
 from statsmodels.tsa.tsatools import vec, vech
 
-from results import savedrvs
-from results.datamlw_tls import mlacf, mlccf, mlpacf, mlywar
+from .results import savedrvs
+from .results.datamlw_tls import mlacf, mlccf, mlpacf, mlywar
 
 xo = savedrvs.rvsdata.xar2
 x100 = xo[-100:]/1000.
@@ -196,6 +197,13 @@ def test_add_lag_drop_noinsert():
     lag_data = sm.tsa.add_lag(data, 'realgdp', 3, insert=False, drop=True)
     assert_equal(lag_data.view((float,len(lag_data.dtype.names))), results)
 
+def test_freq_to_period():
+    from pandas.tseries.frequencies import to_offset
+    freqs = ['A', 'AS-MAR', 'Q', 'QS', 'QS-APR', 'W', 'W-MON', 'B']
+    expected = [1, 1, 4, 4, 4, 52, 52, 52]
+    for i, j in zip(freqs, expected):
+        assert_equal(tools.freq_to_period(i), j)
+        assert_equal(tools.freq_to_period(to_offset(i)), j)
 
 if __name__ == '__main__':
     #running them directly

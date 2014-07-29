@@ -1,3 +1,4 @@
+from statsmodels.compat.python import range
 import numpy as np
 from numpy.testing import dec, assert_equal, assert_almost_equal
 
@@ -9,7 +10,7 @@ try:
     import matplotlib.pyplot as plt
     import matplotlib
     if matplotlib.__version__ < '1':
-        raise
+        raise ImportError("matplotlib is too old. Please upgrade")
     have_matplotlib = True
 except:
     have_matplotlib = False
@@ -52,7 +53,7 @@ def test_banddepth_MBD():
 
 @dec.skipif(not have_matplotlib)
 def test_fboxplot_rainbowplot():
-    """Test fboxplot and rainbowplot together, is much faster."""
+    # Test fboxplot and rainbowplot together, is much faster.
     def harmfunc(t):
         """Test function, combination of a few harmonic terms."""
         # Constant, 0 with p=0.9, 1 with p=1 - for creating outliers

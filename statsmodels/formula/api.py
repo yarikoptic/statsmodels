@@ -6,6 +6,8 @@ from statsmodels.regression.linear_model import OLS
 ols = OLS.from_formula
 from statsmodels.regression.linear_model import GLSAR
 glsar = GLSAR.from_formula
+from statsmodels.regression.mixed_linear_model import MixedLM
+mixedlm = MixedLM.from_formula
 from statsmodels.genmod.generalized_linear_model import GLM
 glm = GLM.from_formula
 from statsmodels.robust.robust_linear_model import RLM
@@ -22,4 +24,7 @@ from statsmodels.discrete.discrete_model import NegativeBinomial
 negativebinomial = NegativeBinomial.from_formula
 from statsmodels.regression.quantile_regression import QuantReg
 quantreg = QuantReg.from_formula
-
+from statsmodels.duration.hazard_regression import PHReg
+phreg = PHReg.from_formula
+from statsmodels.genmod.generalized_estimating_equations import GEE
+gee = GEE.from_formula

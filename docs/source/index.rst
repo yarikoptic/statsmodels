@@ -64,12 +64,12 @@ Basic Documentation
 .. toctree::
     :maxdepth: 3
 
-    introduction
     release/index
     gettingstarted
     example_formulas
     install
     related
+    about
 
 Information about the structure and development of
 statsmodels:
@@ -91,10 +91,13 @@ Table of Contents
 
    regression
    glm
+   gee
    rlm
+   mixed_linear
    discretemod
    anova
    tsa
+   duration
    stats
    nonparametric
    gmm
