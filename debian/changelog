@@ -1,4 +1,4 @@
-statsmodels (0.5.0+git1269-g957a43e-1) experimental; urgency=medium
+statsmodels (0.5.0+git1491-g850e0e4-1) experimental; urgency=medium
 
   * Building current upstream snapshot to verify correct operation across
     releases/architectures
@@ -10,7 +10,7 @@ statsmodels (0.5.0+git1269-g957a43e-1) experimental; urgency=medium
   * debian/rules
     - clean up cythonize.dat
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 26 Aug 2014 23:38:08 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 08 Oct 2014 13:31:36 -0400
 
 statsmodels (0.5.0+git13-g8e07d34-2) unstable; urgency=medium
 
