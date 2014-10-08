@@ -35,8 +35,9 @@ import statsmodels.regression.linear_model as lm
 import statsmodels.base.wrapper as wrap
 
 from statsmodels.genmod import families
-from statsmodels.genmod import dependence_structures
-from statsmodels.genmod.dependence_structures import CovStruct
+from statsmodels.genmod.cov_struct import (Independence,
+                                           GlobalOddsRatio,
+                                           CovStruct)
 import statsmodels.genmod.families.varfuncs as varfuncs
 from statsmodels.genmod.families.links import Link
 from statsmodels.genmod.families import Family
@@ -72,7 +73,7 @@ class ParameterConstraint(object):
 
     def __init__(self, lhs, rhs, exog):
         """
-        Parameters:
+        Parameters
         ----------
         lhs : ndarray
            A q x p matrix which is the left hand side of the
@@ -126,8 +127,8 @@ class ParameterConstraint(object):
         Returns a vector that should be added to the offset vector to
         accommodate the constraint.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         exog : array-like
            The exogeneous data for the model.
         """
@@ -139,8 +140,8 @@ class ParameterConstraint(object):
         Returns a linearly transformed exog matrix whose columns span
         the constrained model space.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         exog : array-like
            The exogeneous data for the model.
         """
@@ -201,7 +202,7 @@ _gee_init_doc = """
     cov_struct : CovStruct class instance
         The default is Independence.  To specify an exchangeable
         structure use cov_struct = Exchangeable().  See
-        statsmodels.genmod.dependence_structures.CovStruct for more
+        statsmodels.genmod.cov_struct.CovStruct for more
         information.
     offset : array-like
         An offset to be included in the fit.  If provided, must be
@@ -318,8 +319,8 @@ _gee_results_doc = """
         indicator for convergence of the optimization.
         True if the norm of the score is smaller than a threshold
     cov_type : string
-        string indicating whether a "robust", "naive" or "bias_
-        reduced" covariance is used as default
+        string indicating whether a "robust", "naive" or "bias_reduced"
+        covariance is used as default
     fit_history : dict
         Contains information about the iterations.
     fittedvalues : array
@@ -405,7 +406,8 @@ class GEE(base.Model):
 
     def __init__(self, endog, exog, groups, time=None, family=None,
                  cov_struct=None, missing='none', offset=None,
-                 dep_data=None, constraint=None, update_dep=True):
+                 exposure=None, dep_data=None, constraint=None,
+                 update_dep=True):
 
         self.missing = missing
         self.dep_data = dep_data
@@ -420,6 +422,7 @@ class GEE(base.Model):
         # self.data.endog, etc.
         super(GEE, self).__init__(endog, exog, groups=groups,
                                   time=time, offset=offset,
+                                  exposure=exposure,
                                   dep_data=dep_data, missing=missing)
 
         self._init_keys.extend(["update_dep", "constraint", "family",
@@ -436,7 +439,7 @@ class GEE(base.Model):
 
         # Handle the cov_struct argument
         if cov_struct is None:
-            cov_struct = dependence_structures.Independence()
+            cov_struct = Independence()
         else:
             if not issubclass(cov_struct.__class__, CovStruct):
                 raise ValueError("GEE: `cov_struct` must be a genmod "
@@ -444,11 +447,16 @@ class GEE(base.Model):
 
         self.cov_struct = cov_struct
 
-        if offset is None:
-            self.offset = np.zeros(self.exog.shape[0],
-                                   dtype=np.float64)
-        else:
+        # Handle the offset and exposure
+        self._offset_exposure = np.zeros(len(self.endog))
+        if offset is not None:
+            self._offset_exposure += self.offset
             self.offset = offset
+        if exposure is not None:
+            if not isinstance(self.family.link, families.links.Log):
+                raise ValueError("exposure can only be used with the log link function")
+            self._offset_exposure += np.log(exposure)
+            self.exposure = exposure
 
         # Handle the constraint
         self.constraint = None
@@ -463,7 +471,7 @@ class GEE(base.Model):
                                                   constraint[1],
                                                   self.exog)
 
-            self.offset += self.constraint.offset_increment()
+            self._offset_exposure += self.constraint.offset_increment()
             self.exog = self.constraint.reduced_exog()
 
         # Convert the data to the internal representation, which is a
@@ -494,7 +502,7 @@ class GEE(base.Model):
                  for y in self.endog_li]
             self.time = np.concatenate(self.time_li)
 
-        self.offset_li = self.cluster_list(self.offset)
+        self.offset_li = self.cluster_list(self._offset_exposure)
         if constraint is not None:
             self.constraint.exog_fulltrans_li = \
                 self.cluster_list(self.constraint.exog_fulltrans)
@@ -553,17 +561,81 @@ class GEE(base.Model):
     # names.
     @classmethod
     def from_formula(cls, formula, groups, data, subset=None,
+                     time=None, offset=None, exposure=None,
                      *args, **kwargs):
+        """
+        Create a GEE model instance from a formula and dataframe.
+
+        Parameters
+        ----------
+        formula : str or generic Formula object
+            The formula specifying the model
+        groups : array-like or string
+            Array of grouping labels.  If a string, this is the name
+            of a variable in `data` that contains the grouping labels.
+        data : array-like
+            The data for the model.
+        subset : array-like
+            An array-like object of booleans, integers, or index
+            values that indicate the subset of the data to used when
+            fitting the model.
+        time : array-like or string
+            The time values, used for dependence structures involving
+            distances between observations.  If a string, this is the
+            name of a variable in `data` that contains the time
+            values.
+        offset : array-like or string
+            The offset values, added to the linear predictor.  If a
+            string, this is the name of a variable in `data` that
+            contains the offset values.
+        exposure : array-like or string
+            The exposure values, only used if the link function is the
+            logarithm function, in which case the log of `exposure`
+            is added to the offset (if any).  If a string, this is the
+            name of a variable in `data` that contains the offset
+            values.
+        %(missing_param_doc)s
+        args : extra arguments
+            These are passed to the model
+        kwargs : extra keyword arguments
+            These are passed to the model.
+
+        Returns
+        -------
+        model : GEE model instance
+
+        Notes
+        ------
+        `data` must define __getitem__ with the keys in the formula
+        terms args and kwargs are passed on to the model
+        instantiation. E.g., a numpy structured or rec array, a
+        dictionary, or a pandas DataFrame.
+
+        This method currently does not correctly handle missing
+        values, so missing values should be explicitly dropped from
+        the DataFrame before calling this method.
+        """ % {'missing_param_doc' : base._missing_param_doc}
+
 
         if type(groups) == str:
             groups = data[groups]
 
-        if "time" in kwargs and type(kwargs["time"]) == str:
-            kwargs["time"] = data[kwargs["time"]]
+        if type(time) == str:
+            time = data[time]
 
-        mod = super(GEE, cls).from_formula(formula, data, subset,
-                                           groups, *args, **kwargs)
-        return mod
+        if type(offset) == str:
+            offset = data[offset]
+
+        if type(exposure) == str:
+            exposure = data[exposure]
+
+        model = super(GEE, cls).from_formula(formula, data, subset,
+                                             groups, time=time,
+                                             offset=offset,
+                                             exposure=exposure,
+                                             *args, **kwargs)
+
+        return model
 
     def cluster_list(self, array):
         """
@@ -772,20 +844,25 @@ class GEE(base.Model):
 
         return (cov_robust, cov_naive, cov_robust_bc, cmat)
 
-    def predict(self, params, exog=None, offset=None, linear=False):
+    def predict(self, params, exog=None, offset=None,
+                exposure=None, linear=False):
         """
-        Return predicted values for a design matrix
+        Return predicted values for a marginal regression model fit
+        using GEE.
 
         Parameters
         ----------
         params : array-like
-            Parameters / coefficients of a GLM.
+            Parameters / coefficients of a marginal regression model.
         exog : array-like, optional
             Design / exogenous data. If exog is None, model exog is
             used.
         offset : array-like, optional
             Offset for exog if provided.  If offset is None, model
             offset is used.
+        exposure : array-like, optional
+            Exposure for exog, if exposure is None, model exposure is
+            used.  Only allowed if link function is the logarithm.
         linear : bool
             If True, returns the linear predicted values.  If False,
             returns the value of the inverse of the model's link
@@ -794,21 +871,61 @@ class GEE(base.Model):
         Returns
         -------
         An array of fitted values
+
+        Notes
+        -----
+        Using log(V) as the offset is equivalent to using V as the
+        exposure.  If exposure U and offset V are both provided, then
+        log(U) + V is added to the linear predictor.
         """
 
+        # TODO: many paths through this, not well covered in tests
+
+        if exposure is not None and not isinstance(self.family.link, families.links.Log):
+            raise ValueError("exposure can only be used with the log link function")
+
+        # This is the combined offset and exposure
+        _offset = 0.
+
+        # Using model exog
         if exog is None:
             exog = self.exog
-            offset = self.offset
-        else:
-            if offset is None:
-                offset = 0
 
-        fitted = offset + np.dot(exog, params)
+            if not isinstance(self.family.link, families.links.Log):
+                # Don't need to worry about exposure
+                if offset is None:
+                    _offset = self._offset_exposure
+                else:
+                    _offset = offset
+
+            else:
+                if offset is None and exposure is None:
+                    _offset = self._offset_exposure
+                elif offset is None and exposure is not None:
+                    _offset = np.log(exposure)
+                    if hasattr(self, "offset"):
+                        _offset = _offset + self.offset
+                elif offset is not None and exposure is None:
+                    _offset = offset
+                    if hasattr(self, "exposure"):
+                        _offset = offset + np.log(self.exposure)
+                else:
+                    _offset = offset + np.log(exposure)
+
+        # exog is provided: this is simpler than above because we
+        # never use model exog or exposure if exog is provided.
+        else:
+            if offset is not None:
+                _offset += offset
+            if exposure is not None:
+                _offset += np.log(exposure)
+
+        lin_pred = _offset + np.dot(exog, params)
 
         if not linear:
-            fitted = self.family.link.inverse(fitted)
+            return self.family.link.inverse(lin_pred)
 
-        return fitted
+        return lin_pred
 
     def _starting_params(self):
         """
@@ -816,20 +933,20 @@ class GEE(base.Model):
         variable names.
         """
 
-        from statsmodels.genmod.dependence_structures import (
-            GlobalOddsRatio, Independence)
-
         dm = self.exog.shape[1]
 
+        # For categorical models, use independence cov_struct to get
+        # starting values.
         if isinstance(self.cov_struct, GlobalOddsRatio):
 
             ind = Independence()
             md = GEE(self.endog, self.exog, self.groups,
                      time=self.time, family=self.family,
-                     offset=self.offset)
+                     offset=self.offset, exposure=self.exposure)
             mdf = md.fit()
             return mdf.params
 
+        # TODO: use GLM to get Poisson starting values
         else:
             return np.zeros(dm, dtype=np.float64)
 
@@ -948,15 +1065,15 @@ class GEE(base.Model):
         Expand the parameter estimate `mean_params` and covariance matrix
         `bcov` to the coordinate system of the unconstrained model.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         mean_params : array-like
             A parameter vector estimate for the reduced model.
         bcov : array-like
             The covariance matrix of mean_params.
 
-        Returns:
-        --------
+        Returns
+        -------
         mean_params : array-like
             The input parameter vector mean_params, expanded to the
             coordinate system of the full model
@@ -1120,7 +1237,7 @@ class GEEResults(base.LikelihoodModelResults):
         standard errors for whichever covariance type is specified as
         an argument to `fit` (defaults to "robust").
 
-        Arguments:
+        Parameters
         ----------
         cov_type : string
             One of "robust", "naive", or "bias_reduced".  Determines
@@ -1352,7 +1469,7 @@ class GEEResults(base.LikelihoodModelResults):
         plot can be used to assess the possible form of an isotropic
         covariance structure.
 
-        Arguments:
+        Parameters
         ----------
         ax : Matplotlib axes instance
             An axes on which to draw the graph.  If None, new
@@ -1606,7 +1723,7 @@ class OrdinalGEEResults(GEEResults):
         Plot the fitted probabilities of endog in an ordinal model,
         for specifed values of the predictors.
 
-        Arguments:
+        Parameters
         ----------
         ax : Matplotlib axes instance
             An axes on which to draw the graph.  If None, new
@@ -1825,7 +1942,7 @@ class NominalGEEResults(GEEResults):
         Plot the fitted probabilities of endog in an nominal model,
         for specifed values of the predictors.
 
-        Arguments:
+        Parameters
         ----------
         ax : Matplotlib axes instance
             An axes on which to draw the graph.  If None, new
@@ -2051,7 +2168,7 @@ class Multinomial(Family):
 
     def __init__(self, nlevels):
         """
-        Arguments:
+        Parameters
         ----------
         nlevels : integer
             The number of distinct categories for the multinomial

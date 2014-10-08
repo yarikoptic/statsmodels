@@ -205,8 +205,8 @@ class LikelihoodModel(Model):
         raise NotImplementedError
 
     def fit(self, start_params=None, method='newton', maxiter=100,
-            full_output=True, disp=True, fargs=(), callback=None,
-            retall=False, **kwargs):
+            full_output=True, disp=True, fargs=(), callback=None, retall=False,
+            skip_hessian=False, **kwargs):
         """
         Fit method for likelihood based models
 
@@ -250,6 +250,18 @@ class LikelihoodModel(Model):
         retall : bool, optional
             Set to True to return list of solutions at each iteration.
             Available in Results object's mle_retvals attribute.
+        skip_hessian : bool, optional
+            If False (default), then the negative inverse hessian is calculated
+            after the optimization. If True, then the hessian will not be
+            calculated. However, it will be available in methods that use the
+            hessian in the optimization (currently only with `"newton"`).
+        kwargs : keywords
+            All kwargs are passed to the chosen solver with one exception. The
+            following keyword controls what happens after the fit::
+
+            warn_convergence : bool, optional
+                If True, checks the model for the converged flag. If the
+                converged flag is False, a ConvergenceWarning is issued.
 
         Notes
         -----
@@ -379,6 +391,7 @@ class LikelihoodModel(Model):
             hess = lambda params: self.hessian(params) / nobs
             #TODO: why are score and hess positive?
 
+        warn_convergence = kwargs.pop('warn_convergence', True)
         optimizer = Optimizer()
         xopt, retvals, optim_settings = optimizer._fit(f, score, start_params,
                                                        fargs, kwargs,
@@ -398,7 +411,7 @@ class LikelihoodModel(Model):
             Hinv = cov_params_func(self, xopt, retvals)
         elif method == 'newton' and full_output:
             Hinv = np.linalg.inv(-retvals['Hessian']) / nobs
-        else:
+        elif not skip_hessian:
             try:
                 Hinv = np.linalg.inv(-1 * self.hessian(xopt))
             except:
@@ -425,6 +438,11 @@ class LikelihoodModel(Model):
         #TODO: hardcode scale?
         if isinstance(retvals, dict):
             mlefit.mle_retvals = retvals
+            if warn_convergence and not retvals['converged']:
+                from warnings import warn
+                from statsmodels.tools.sm_exceptions import ConvergenceWarning
+                warn("Maximum Likelihood optimization failed to converge. "
+                     "Check mle_retvals", ConvergenceWarning)
 
         mlefit.mle_settings = optim_settings
         return mlefit
@@ -591,7 +609,7 @@ class GenericLikelihoodModel(LikelihoodModel):
         kwds.setdefault('centered', True)
         return approx_fprime(params, self.loglike, **kwds).ravel()
 
-    def jac(self, params, **kwds):
+    def score_obs(self, params, **kwds):
         '''
         Jacobian/Gradient of log-likelihood evaluated at params for each
         observation.
@@ -599,6 +617,9 @@ class GenericLikelihoodModel(LikelihoodModel):
         #kwds.setdefault('epsilon', 1e-4)
         kwds.setdefault('centered', True)
         return approx_fprime(params, self.loglikeobs, **kwds)
+
+    jac = np.deprecate(score_obs, 'jac', 'score_obs', "Use score_obs method."
+                       " jac will be removed in 0.7.")
 
     def hessian(self, params):
         '''
@@ -1128,7 +1149,8 @@ class LikelihoodModelResults(Results):
                  "in 0.6.0. See the documentation for the new API",
                  FutureWarning)
             r_matrix = (r_matrix, q_matrix)
-        LC = DesignInfo(self.model.exog_names).linear_constraint(r_matrix)
+        names = self.model.data.param_names
+        LC = DesignInfo(names).linear_constraint(r_matrix)
         r_matrix, q_matrix = LC.coefs, LC.constants
         num_ttests = r_matrix.shape[0]
         num_params = r_matrix.shape[1]
@@ -1345,7 +1367,8 @@ class LikelihoodModelResults(Results):
                  "in 0.6.0. See the documentation for the new API",
                  FutureWarning)
             r_matrix = (r_matrix, q_matrix)
-        LC = DesignInfo(self.model.exog_names).linear_constraint(r_matrix)
+        names = self.model.data.param_names
+        LC = DesignInfo(names).linear_constraint(r_matrix)
         r_matrix, q_matrix = LC.coefs, LC.constants
 
         if (self.normalized_cov_params is None and cov_p is None and
@@ -1604,10 +1627,14 @@ class ResultMixin(object):
         return -2 * self.llf + np.log(self.nobs) * (self.df_modelwc)
 
     @cache_readonly
-    def jacv(self):
+    def score_obsv(self):
         '''cached Jacobian of log-likelihood
         '''
-        return self.model.jac(self.params)
+        return self.model.score_obs(self.params)
+
+    jacv = np.deprecate(score_obsv, 'jacv', 'score_obsv',
+                        "Use score_obsv attribute."
+                       " jacv will be removed in 0.7.")
 
     @cache_readonly
     def hessv(self):
@@ -1626,7 +1653,7 @@ class ResultMixin(object):
         ##      raise ValueError('need to call fit first')
         ##      #self.fit()
         ##  self.jacv = jacv = self.jac(self._results.params)
-        jacv = self.jacv
+        jacv = self.score_obsv
         return np.linalg.inv(np.dot(jacv.T, jacv))
 
     @cache_readonly
@@ -1637,11 +1664,10 @@ class ResultMixin(object):
 
         name should be covhjh
         '''
-        jacv = self.jacv
-        ##  hessv = self.hessv
-        ##  hessinv = np.linalg.inv(hessv)
-        ##  self.hessinv = hessinv
-        hessinv = self.cov_params()
+        jacv = self.score_obsv
+        hessv = self.hessv
+        hessinv = np.linalg.inv(hessv)
+        ##  self.hessinv = hessin = self.cov_params()
         return np.dot(hessinv, np.dot(np.dot(jacv.T, jacv), hessinv))
 
     @cache_readonly
@@ -1695,7 +1721,7 @@ class ResultMixin(object):
         print(self.model.__class__)
         hascloneattr = True if hasattr(self, 'cloneattr') else False
         for i in range(nrep):
-            rvsind = np.random.randint(self.nobs - 1, size=self.nobs)
+            rvsind = np.random.randint(self.nobs, size=self.nobs)
             #this needs to set startparam and get other defining attributes
             #need a clone method on model
             fitmod = self.model.__class__(self.endog[rvsind],

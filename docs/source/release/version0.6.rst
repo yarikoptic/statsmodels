@@ -62,7 +62,6 @@ forms of standard errors are provided, including robust standard
 errors that are approximately correct even if the working dependence
 structure is misspecified.
 
-
 Seasonality Plots
 -----------------
 
@@ -90,7 +89,8 @@ Seasonal Decomposition
 We added a naive seasonal decomposition tool in the same vein as R's ``decompose``. This function can be found as :func:`sm.tsa.seasonal_decompose <tsa.seasonal.seasonal_decompose>`.
 
 
-.. code-block:: python
+.. plot::
+   :include-source:
 
     import statsmodels.api as sm
 
@@ -122,13 +122,14 @@ other types of random effects models can all be fit.
 Here is an example of fitting a random intercepts model to data from a
 longitudinal study:
 
-data = pd.read_csv("http://vincentarelbundock.github.io/Rdatasets/csv/geepack/dietox.csv")
-md = MixedLM.from_formula("Weight ~ Time", data, groups=data["Pig"])
-mdf = md.fit()
-print mdf.summary()
+.. ipython:: python
 
-To extend this to a random slopes model, we would add the statement
-`md.set_random("Time", data)` before calling the `fit` method.
+    import statsmodels.api as sm
+    import statsmodels.formula.api as smf
+    data = sm.datasets.get_rdataset('dietox', 'geepack', cache=True).data
+    md = smf.mixedlm("Weight ~ Time", data, groups=data["Pig"])
+    mdf = md.fit()
+    print mdf.summary()
 
 The Statsmodels LME framework currently supports post-estimation
 inference via Wald tests and confidence intervals on the coefficients,
@@ -138,10 +139,34 @@ structure more complex on the residual errors (they are always
 homoscedastic), and it does not support crossed random effects.  We
 hope to implement these features for the next release.
 
+Wrapping X-12-ARIMA/X-13-ARIMA
+------------------------------
+
+It is now possible to call out to X-12-ARIMA or X-13ARIMA-SEATS from statsmodels. These libraries must be installed separately.
+
+.. plot::
+   :include-source:
+
+    import statsmodels.api as sm
+
+    dta = sm.datasets.co2.load_pandas().data
+    dta.co2.interpolate(inplace=True)
+    dta = dta.resample('M')
+
+    res = sm.tsa.x13_arima_select_order(dta.co2)
+    print(res.order, res.sorder)
+
+    results = sm.tsa.x13_arima_analysis(dta.co2)
+
+    fig = results.plot()
+    fig.set_size_inches(12, 5)
+    fig.tight_layout()
+
 
 Other important new features
 ----------------------------
 
+* The AR(I)MA models now have a :func:`plot_predict <arima_model.ARMAResults.plot_predict>` method to plot forecasts and confidence intervals.
 * The Kalman filter Cython code underlying AR(I)MA estimation has been substantially optimized. You can expect speed-ups of one to two orders of magnitude.
 
 * Added :func:`sm.tsa.arma_order_select_ic`. A convenience function to quickly get the information criteria for use in tentative order selection of ARMA processes.
@@ -164,6 +189,7 @@ Other important new features
   as "forest plots", but can be used in many other settings as well.
   Most tables that appear in research papers can be represented
   graphically as a dotplot.
+* Statsmodels has added custom warnings to ``statsmodels.tools.sm_exceptions``. By default all of these warnings will be raised whenever appropriate. Use ``warnings.simplefilter`` to turn them off, if desired.
 
 
 Major Bugs fixed
