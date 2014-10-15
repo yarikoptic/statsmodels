@@ -189,10 +189,11 @@ class GLM(base.LikelihoodModel):
     """ % {'extra_params' : base._missing_param_doc}
 
     def __init__(self, endog, exog, family=None, offset=None, exposure=None,
-                 missing='none'):
+                 missing='none', **kwargs):
         self._check_inputs(family, offset, exposure, endog)
         super(GLM, self).__init__(endog, exog, missing=missing,
-                                  offset=self.offset, exposure=self.exposure)
+                                  offset=self.offset, exposure=self.exposure,
+                                  **kwargs)
         if offset is None:
             delattr(self, 'offset')
         if exposure is None:
@@ -626,7 +627,8 @@ class GLM(base.LikelihoodModel):
             return self.family.fitted(linpred)
 
     def fit(self, start_params=None, maxiter=100, method='IRLS', tol=1e-8,
-            scale=None):
+            scale=None, cov_type='nonrobust', cov_kwds=None, use_t=None,
+            **kwargs):
         """
         Fits a generalized linear model for a given family.
 
@@ -651,6 +653,10 @@ class GLM(base.LikelihoodModel):
             The default is family-specific and is given by the
             ``family.starting_mu(endog)``. If start_params is given then the
             initial mean will be calculated as ``np.dot(exog, start_params)``.
+
+        Notes
+        -----
+        This method does not take any extra undocumented ``kwargs``.
         """
         endog = self.endog
         if endog.ndim > 1 and endog.shape[1] == 2:
@@ -717,9 +723,13 @@ class GLM(base.LikelihoodModel):
             if converged:
                 break
         self.mu = mu
+
         glm_results = GLMResults(self, wls_results.params,
                                  wls_results.normalized_cov_params,
-                                 self.scale)
+                                 self.scale,
+                                 cov_type=cov_type, cov_kwds=cov_kwds,
+                                 use_t=use_t)
+
         history['iteration'] = iteration + 1
         glm_results.fit_history = history
         return GLMResultsWrapper(glm_results)
@@ -873,7 +883,8 @@ class GLMResults(base.LikelihoodModelResults):
     statsmodels.base.model.LikelihoodModelResults
     """
 
-    def __init__(self, model, params, normalized_cov_params, scale):
+    def __init__(self, model, params, normalized_cov_params, scale,
+                 cov_type='nonrobust', cov_kwds=None, use_t=None):
         super(GLMResults, self).__init__(model, params,
                                          normalized_cov_params=
                                          normalized_cov_params, scale=scale)
@@ -893,6 +904,24 @@ class GLMResults(base.LikelihoodModelResults):
         self._data_attr.extend(['results_constrained'])
         self.data_in_cache = getattr(self, 'data_in_cache', [])
         self.data_in_cache.extend(['null'])
+
+        # robust covariance
+        from statsmodels.base.covtype import get_robustcov_results
+        if use_t is None:
+            self.use_t = False    # TODO: class default
+        else:
+            self.use_t = use_t
+        if cov_type == 'nonrobust':
+            self.cov_type = 'nonrobust'
+            self.cov_kwds = {'description' : 'Standard Errors assume that the ' +
+                             'covariance matrix of the errors is correctly ' +
+                             'specified.'}
+
+        else:
+            if cov_kwds is None:
+                cov_kwds = {}
+            get_robustcov_results(self, cov_type=cov_type, use_self=True,
+                                       use_t=use_t, **cov_kwds)
 
     @cache_readonly
     def resid_response(self):

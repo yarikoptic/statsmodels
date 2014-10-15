@@ -23,13 +23,17 @@ class CovStruct(object):
     correlation matrix.
     """
 
-    def __init__(self):
+    def __init__(self, cov_nearest_method="clipped"):
 
         # Parameters describing the dependency structure
         self.dep_params = None
 
-        self.cov_adjust = 0
+        # Keep track of the number of times that the covariance was
+        # adjusted.
+        self.cov_adjust = []
 
+        # Method for projecting the covariance matrix if it not SPD.
+        self.cov_nearest_method = cov_nearest_method
 
 
     def initialize(self, model):
@@ -132,26 +136,30 @@ class CovStruct(object):
         if is_cor:
             vmat *= np.outer(stdev, stdev)
 
-        # Factor, the covariance matrix.  If the factorization fails,
+        # Factor the covariance matrix.  If the factorization fails,
         # attempt to condition it into a factorizable matrix.
         threshold = 1e-2
         success = False
         cov_adjust = 0
-        for itr in range(10):
+        for itr in range(20):
             try:
                 vco = spl.cho_factor(vmat)
                 success = True
                 break
             except np.linalg.LinAlgError:
-                vmat = cov_nearest(vmat, method="nearest", threshold=threshold)
+                vmat = cov_nearest(vmat, method=self.cov_nearest_method,
+                                   threshold=threshold)
                 threshold *= 2
-                cov_adjust = 1
+                cov_adjust += 1
 
-        self.cov_adjust += cov_adjust
+        self.cov_adjust.append(cov_adjust)
+
+        # Last resort if we still can't factor the covariance matrix.
         if success == False:
-            warnings.warn("Unable to condition covariance matrix to an SPD matrix",
+            warnings.warn("Unable to condition covariance matrix to an SPD matrix using cov_nearest",
                           ConvergenceWarning)
-            return None
+            vmat = np.diag(np.diag(vmat))
+            vco = spl.cho_factor(vmat)
 
         soln = [spl.cho_solve(vco, x) for x in rhs]
         return soln
@@ -288,8 +296,8 @@ class Nested(CovStruct):
     columns j' < j (this only applies to observations in the same
     top-level cluster given by the `groups` argument to GEE).
 
-    Example
-    -------
+    Examples
+    --------
     Suppose our data are student test scores, and the students are in
     classrooms, nested in schools, nested in school districts.  The
     school district is the highest level of grouping, so the school
@@ -484,8 +492,8 @@ class Autoregressive(CovStruct):
        A function that computes the distance between the two
        observations based on their `time` values.
 
-    Reference
-    ---------
+    References
+    ----------
     B Rosner, A Munoz.  Autoregressive modeling for the analysis of
     longitudinal data with unequally spaced examinations.  Statistics
     in medicine. Vol 7, 59-71, 1988.
@@ -677,8 +685,8 @@ class GlobalOddsRatio(CovStruct):
     No. 1 (Mar., 1996), pp. 354-361
     http://www.jstor.org/stable/2533173
 
-    Notes:
-    ------
+    Notes
+    -----
     The following data structures are calculated in the class:
 
     'ibd' is a list whose i^th element ibd[i] is a sequence of integer

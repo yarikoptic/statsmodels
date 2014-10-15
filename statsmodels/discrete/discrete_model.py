@@ -166,14 +166,16 @@ class DiscreteModel(base.LikelihoodModel):
         mlefit = super(DiscreteModel, self).fit(start_params=start_params,
                 method=method, maxiter=maxiter, full_output=full_output,
                 disp=disp, callback=callback, **kwargs)
+
         return mlefit # up to subclasses to wrap results
 
     fit.__doc__ += base.LikelihoodModel.fit.__doc__
 
     def fit_regularized(self, start_params=None, method='l1',
-            maxiter='defined_by_method', full_output=1, disp=True,
-            callback=None, alpha=0, trim_mode='auto', auto_trim_tol=0.01,
-            size_trim_tol=1e-4, qc_tol=0.03, qc_verbose=False, **kwargs):
+                        maxiter='defined_by_method', full_output=1, disp=True,
+                        callback=None, alpha=0, trim_mode='auto',
+                        auto_trim_tol=0.01, size_trim_tol=1e-4, qc_tol=0.03,
+                        qc_verbose=False, **kwargs):
         """
         Fit the model using a regularized maximum likelihood.
         The regularization method AND the solver used is determined by the
@@ -271,8 +273,8 @@ class DiscreteModel(base.LikelihoodModel):
         if method in ['l1', 'l1_cvxopt_cp']:
             cov_params_func = self.cov_params_func_l1
         else:
-            raise Exception(
-                    "argument method == %s, which is not handled" % method)
+            raise Exception("argument method == %s, which is not handled"
+                            % method)
 
         ### Bundle up extra kwargs for the dictionary kwargs.  These are
         ### passed through super(...).fit() as kwargs and unpacked at
@@ -305,8 +307,8 @@ class DiscreteModel(base.LikelihoodModel):
             from statsmodels.base.l1_cvxopt import fit_l1_cvxopt_cp
             extra_fit_funcs['l1_cvxopt_cp'] = fit_l1_cvxopt_cp
         elif method.lower() == 'l1_cvxopt_cp':
-            message = """Attempt to use l1_cvxopt_cp failed since cvxopt
-            could not be imported"""
+            message = ("Attempt to use l1_cvxopt_cp failed since cvxopt "
+                        "could not be imported")
 
         if callback is None:
             callback = self._check_perfect_pred
@@ -359,6 +361,14 @@ class DiscreteModel(base.LikelihoodModel):
         raise NotImplementedError
 
 class BinaryModel(DiscreteModel):
+
+    def __init__(self, endog, exog, **kwargs):
+        super(BinaryModel, self).__init__(endog, exog, **kwargs)
+        if (self.__class__.__name__ != 'MNLogit' and
+                not np.all((self.endog >= 0) & (self.endog <= 1))):
+            raise ValueError("endog must be in the unit interval.")
+
+
     def predict(self, params, exog=None, linear=False):
         """
         Predict response variable of a model given exogenous variables.
@@ -638,10 +648,11 @@ class MultinomialModel(BinaryModel):
         return margeff.reshape(len(exog), -1, order='F')
 
 class CountModel(DiscreteModel):
-    def __init__(self, endog, exog, offset=None, exposure=None, missing='none'):
+    def __init__(self, endog, exog, offset=None, exposure=None, missing='none',
+                 **kwargs):
         self._check_inputs(offset, exposure, endog) # attaches if needed
         super(CountModel, self).__init__(endog, exog, missing=missing,
-                offset=self.offset, exposure=self.exposure)
+                offset=self.offset, exposure=self.exposure, **kwargs)
         if offset is None:
             delattr(self, 'offset')
         if exposure is None:
@@ -925,7 +936,13 @@ class Poisson(CountModel):
         cntfit = super(CountModel, self).fit(start_params=start_params,
                 method=method, maxiter=maxiter, full_output=full_output,
                 disp=disp, callback=callback, **kwargs)
-        discretefit = PoissonResults(self, cntfit)
+
+        if 'cov_type' in kwargs:
+            cov_kwds = kwargs.get('cov_kwds', {})
+            kwds = {'cov_type':kwargs['cov_type'], 'cov_kwds':cov_kwds}
+        else:
+            kwds = {}
+        discretefit = PoissonResults(self, cntfit, **kwds)
         return PoissonResultsWrapper(discretefit)
     fit.__doc__ = DiscreteModel.fit.__doc__
 
@@ -996,7 +1013,8 @@ class Poisson(CountModel):
                                                   start_params=start_params,
                                                   fit_kwds=fit_kwds)
         #create dummy results Instance, TODO: wire up properly
-        res = self.fit(maxiter=0, method='nm', disp=0) # we get a wrapper back
+        res = self.fit(maxiter=0, method='nm', disp=0,
+                       warn_convergence=False) # we get a wrapper back
         res.mle_retvals['fcall'] = res_constr.mle_retvals.get('fcall', np.nan)
         res.mle_retvals['iterations'] = res_constr.mle_retvals.get(
                                                         'iterations', np.nan)
@@ -1041,7 +1059,7 @@ class Poisson(CountModel):
         L = np.exp(np.dot(X,params) + offset + exposure)
         return np.dot(self.endog - L, X)
 
-    def jac(self, params):
+    def score_obs(self, params):
         """
         Poisson model Jacobian of the log-likelihood for each observation
 
@@ -1070,6 +1088,9 @@ class Poisson(CountModel):
         X = self.exog
         L = np.exp(np.dot(X,params) + offset + exposure)
         return (self.endog - L)[:,None] * X
+
+    jac = np.deprecate(score_obs, 'jac', 'score_obs', "Use score_obs method."
+                       " jac will be removed in 0.7")
 
     def hessian(self, params):
         """
@@ -1242,7 +1263,7 @@ class Logit(BinaryModel):
         L = self.cdf(np.dot(X,params))
         return np.dot(y - L,X)
 
-    def jac(self, params):
+    def score_obs(self, params):
         """
         Logit model Jacobian of the log-likelihood for each observation
 
@@ -1269,6 +1290,9 @@ class Logit(BinaryModel):
         X = self.exog
         L = self.cdf(np.dot(X, params))
         return (y - L)[:,None] * X
+
+    jac = np.deprecate(score_obs, 'jac', 'score_obs', "Use score_obs method."
+                       " jac will be removed in 0.7")
 
     def hessian(self, params):
         """
@@ -1298,6 +1322,7 @@ class Logit(BinaryModel):
         bnryfit = super(Logit, self).fit(start_params=start_params,
                 method=method, maxiter=maxiter, full_output=full_output,
                 disp=disp, callback=callback, **kwargs)
+
         discretefit = LogitResults(self, bnryfit)
         return BinaryResultsWrapper(discretefit)
     fit.__doc__ = DiscreteModel.fit.__doc__
@@ -1449,7 +1474,7 @@ class Probit(BinaryModel):
         L = q*self.pdf(q*XB)/np.clip(self.cdf(q*XB), FLOAT_EPS, 1 - FLOAT_EPS)
         return np.dot(L,X)
 
-    def jac(self, params):
+    def score_obs(self, params):
         """
         Probit model Jacobian for each observation
 
@@ -1480,6 +1505,9 @@ class Probit(BinaryModel):
         # clip to get rid of invalid divide complaint
         L = q*self.pdf(q*XB)/np.clip(self.cdf(q*XB), FLOAT_EPS, 1 - FLOAT_EPS)
         return L[:,None] * X
+
+    jac = np.deprecate(score_obs, 'jac', 'score_obs', "Use score_obs method."
+                       " jac will be removed in 0.7")
 
     def hessian(self, params):
         """
@@ -1694,7 +1722,7 @@ class MNLogit(MultinomialModel):
         score_array = np.dot(firstterm.T, self.exog).flatten()
         return loglike_value, score_array
 
-    def jac(self, params):
+    def score_obs(self, params):
         """
         Jacobian matrix for multinomial logit model log-likelihood
 
@@ -1724,6 +1752,9 @@ class MNLogit(MultinomialModel):
                                                   params))[:,1:]
         #NOTE: might need to switch terms if params is reshaped
         return (firstterm[:,:,None] * self.exog[:,None,:]).reshape(self.exog.shape[0], -1)
+
+    jac = np.deprecate(score_obs, 'jac', 'score_obs', "Use score_obs method."
+                       " jac will be removed in 0.7")
 
     def hessian(self, params):
         """
@@ -1873,10 +1904,10 @@ class NegativeBinomial(CountModel):
 
     """ + base._missing_param_doc}
     def __init__(self, endog, exog, loglike_method='nb2', offset=None,
-                       exposure=None, missing='none'):
+                       exposure=None, missing='none', **kwargs):
         super(NegativeBinomial, self).__init__(endog, exog, offset=offset,
                                                exposure=exposure,
-                                               missing=missing)
+                                               missing=missing, **kwargs)
         self.loglike_method = loglike_method
         self._initialize()
         if loglike_method in ['nb2', 'nb1']:
@@ -2164,12 +2195,20 @@ class NegativeBinomial(CountModel):
         return hess_arr
 
     #TODO: replace this with analytic where is it used?
-    def jac(self, params):
+    def score_obs(self, params):
         sc = approx_fprime_cs(params, self.loglikeobs)
         return sc
 
+    jac = np.deprecate(score_obs, 'jac', 'score_obs', "Use score_obs method."
+                       " jac will be removed in 0.7")
+
     def fit(self, start_params=None, method='bfgs', maxiter=35,
-            full_output=1, disp=1, callback=None, **kwargs):
+            full_output=1, disp=1, callback=None,
+            cov_type='nonrobust', cov_kwds=None, use_t=None, **kwargs):
+
+        # Note: don't let super handle robust covariance because it has
+        # transformed params
+
         if self.loglike_method.startswith('nb') and method not in ['newton',
                                                                    'ncg']:
             self._transparams = True # in case same Model instance is refit
@@ -2194,9 +2233,15 @@ class NegativeBinomial(CountModel):
                 mlefit._results.params[-1] = np.exp(mlefit._results.params[-1])
 
             nbinfit = NegativeBinomialResults(self, mlefit._results)
-            return NegativeBinomialResultsWrapper(nbinfit)
+            result = NegativeBinomialResultsWrapper(nbinfit)
         else:
-            return mlefit
+            result = mlefit
+
+        if cov_kwds is None:
+            cov_kwds = {}  #TODO: make this unnecessary ?
+        result._get_robustcov_results(cov_type=cov_type,
+                                    use_self=True, use_t=use_t, **cov_kwds)
+        return result
 
 
     def fit_regularized(self, start_params=None, method='l1',
@@ -2245,7 +2290,8 @@ class DiscreteResults(base.LikelihoodModelResults):
         "A results class for the discrete dependent variable models.",
         "extra_attr" : ""}
 
-    def __init__(self, model, mlefit):
+    def __init__(self, model, mlefit, cov_type='nonrobust', cov_kwds=None,
+                 use_t=None):
         #super(DiscreteResults, self).__init__(model, params,
         #        np.linalg.inv(-hessian), scale=1.)
         self.model = model
@@ -2254,6 +2300,25 @@ class DiscreteResults(base.LikelihoodModelResults):
         self._cache = resettable_cache()
         self.nobs = model.exog.shape[0]
         self.__dict__.update(mlefit.__dict__)
+
+        if not hasattr(self, 'cov_type'):
+            # do this only if super, i.e. mlefit didn't already add cov_type
+            # robust covariance
+            if use_t is not None:
+                self.use_t = use_t
+            if cov_type == 'nonrobust':
+                self.cov_type = 'nonrobust'
+                self.cov_kwds = {'description' : 'Standard Errors assume that the ' +
+                                 'covariance matrix of the errors is correctly ' +
+                                 'specified.'}
+            else:
+                if cov_kwds is None:
+                    cov_kwds = {}
+                from statsmodels.base.covtype import get_robustcov_results
+                get_robustcov_results(self, cov_type=cov_type, use_self=True,
+                                           **cov_kwds)
+
+
 
     def __getstate__(self):
         try:
@@ -2280,9 +2345,13 @@ class DiscreteResults(base.LikelihoodModelResults):
 
         model = self.model
         kwds = model._get_init_kwds()
-        #TODO: what parameters to pass to fit?
+        # TODO: what parameters to pass to fit?
         mod_null = model.__class__(model.endog, np.ones(self.nobs), **kwds)
-        res_null = mod_null.fit(disp=0)
+        # TODO: consider catching and warning on convergence failure?
+        # in the meantime, try hard to converge. see
+        # TestPoissonConstrained1a.test_smoke
+        res_null = mod_null.fit(disp=0, warn_convergence=False,
+                                maxiter=10000)
         return res_null.llf
 
     @cache_readonly
@@ -2369,17 +2438,6 @@ class DiscreteResults(base.LikelihoodModelResults):
         """
         from statsmodels.discrete.discrete_margins import DiscreteMargins
         return DiscreteMargins(self, (at, method, atexog, dummy, count))
-
-
-    def margeff(self, at='overall', method='dydx', atexog=None, dummy=False,
-            count=False):
-        """DEPRECATED: marginal effects, use get_margeff instead
-        """
-        import warnings
-        warnings.warn("This method is deprecated and will be removed in 0.6.0."
-                " Use get_margeff instead", FutureWarning)
-        return self.get_margeff(at, method, atexog, dummy, count)
-
 
     def summary(self, yname=None, xname=None, title=None, alpha=.05,
                 yname_list=None):
@@ -2657,13 +2715,6 @@ class BinaryResults(DiscreteResults):
             smry.add_extra_txt(etext)
         return smry
     summary.__doc__ = DiscreteResults.summary.__doc__
-
-    @cache_readonly
-    def resid(self):
-        import warnings
-        warnings.warn("This attribute is deprecated and will be removed in "
-                      "0.6.0. Use resid_dev instead.", FutureWarning)
-        return self.resid_dev
 
     @cache_readonly
     def resid_dev(self):

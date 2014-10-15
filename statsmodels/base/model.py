@@ -109,7 +109,13 @@ class Model(object):
         args : extra arguments
             These are passed to the model
         kwargs : extra keyword arguments
-            These are passed to the model.
+            These are passed to the model with one exception. The
+            ``eval_env`` keyword is passed to patsy. It can be either a
+            :class:`patsy:patsy.EvalEnvironment` object or an integer
+            indicating the depth of the namespace to use. For example, the
+            default ``eval_env=0`` uses the calling namespace. If you wish
+            to use a "clean" environment set ``eval_env=-1``.
+
 
         Returns
         -------
@@ -125,7 +131,22 @@ class Model(object):
         #TODO: subset could use syntax. issue #469.
         if subset is not None:
             data = data.ix[subset]
-        endog, exog = handle_formula_data(data, None, formula)
+        eval_env = kwargs.pop('eval_env', None)
+        if eval_env is None:
+            eval_env = 2
+        elif eval_env == -1:
+            from patsy import EvalEnvironment
+            eval_env = EvalEnvironment({})
+        else:
+            eval_env += 1  # we're going down the stack again
+        missing = kwargs.get('missing', 'drop')
+        if missing == 'none':  # with patys it's drop or raise. let's raise.
+            missing = 'raise'
+        (endog, exog), missing_idx = handle_formula_data(data, None, formula,
+                                                         depth=eval_env,
+                                                         missing=missing)
+        kwargs.update({'missing_idx': missing_idx,
+                       'missing': missing})
         mod = cls(endog, exog, *args, **kwargs)
         mod.formula = formula
 
@@ -205,8 +226,8 @@ class LikelihoodModel(Model):
         raise NotImplementedError
 
     def fit(self, start_params=None, method='newton', maxiter=100,
-            full_output=True, disp=True, fargs=(), callback=None,
-            retall=False, **kwargs):
+            full_output=True, disp=True, fargs=(), callback=None, retall=False,
+            skip_hessian=False, **kwargs):
         """
         Fit method for likelihood based models
 
@@ -250,6 +271,18 @@ class LikelihoodModel(Model):
         retall : bool, optional
             Set to True to return list of solutions at each iteration.
             Available in Results object's mle_retvals attribute.
+        skip_hessian : bool, optional
+            If False (default), then the negative inverse hessian is calculated
+            after the optimization. If True, then the hessian will not be
+            calculated. However, it will be available in methods that use the
+            hessian in the optimization (currently only with `"newton"`).
+        kwargs : keywords
+            All kwargs are passed to the chosen solver with one exception. The
+            following keyword controls what happens after the fit::
+
+                warn_convergence : bool, optional
+                    If True, checks the model for the converged flag. If the
+                    converged flag is False, a ConvergenceWarning is issued.
 
         Notes
         -----
@@ -379,6 +412,7 @@ class LikelihoodModel(Model):
             hess = lambda params: self.hessian(params) / nobs
             #TODO: why are score and hess positive?
 
+        warn_convergence = kwargs.pop('warn_convergence', True)
         optimizer = Optimizer()
         xopt, retvals, optim_settings = optimizer._fit(f, score, start_params,
                                                        fargs, kwargs,
@@ -398,7 +432,7 @@ class LikelihoodModel(Model):
             Hinv = cov_params_func(self, xopt, retvals)
         elif method == 'newton' and full_output:
             Hinv = np.linalg.inv(-retvals['Hessian']) / nobs
-        else:
+        elif not skip_hessian:
             try:
                 Hinv = np.linalg.inv(-1 * self.hessian(xopt))
             except:
@@ -409,12 +443,27 @@ class LikelihoodModel(Model):
                 warn(warndoc, RuntimeWarning)
                 Hinv = None
 
+        if 'cov_type' in kwargs:
+            cov_kwds = kwargs.get('cov_kwds', {})
+            kwds = {'cov_type':kwargs['cov_type'], 'cov_kwds':cov_kwds}
+        else:
+            kwds = {}
+        if 'use_t' in kwargs:
+            kwds['use_t'] = kwargs['use_t']
+        #prints for debugging
+        #print('kwargs inLikelihoodModel.fit', kwargs)
+        #print('kwds inLikelihoodModel.fit', kwds)
         #TODO: add Hessian approximation and change the above if needed
-        mlefit = LikelihoodModelResults(self, xopt, Hinv, scale=1.)
+        mlefit = LikelihoodModelResults(self, xopt, Hinv, scale=1., **kwds)
 
         #TODO: hardcode scale?
         if isinstance(retvals, dict):
             mlefit.mle_retvals = retvals
+            if warn_convergence and not retvals['converged']:
+                from warnings import warn
+                from statsmodels.tools.sm_exceptions import ConvergenceWarning
+                warn("Maximum Likelihood optimization failed to converge. "
+                     "Check mle_retvals", ConvergenceWarning)
 
         mlefit.mle_settings = optim_settings
         return mlefit
@@ -581,7 +630,7 @@ class GenericLikelihoodModel(LikelihoodModel):
         kwds.setdefault('centered', True)
         return approx_fprime(params, self.loglike, **kwds).ravel()
 
-    def jac(self, params, **kwds):
+    def score_obs(self, params, **kwds):
         '''
         Jacobian/Gradient of log-likelihood evaluated at params for each
         observation.
@@ -589,6 +638,9 @@ class GenericLikelihoodModel(LikelihoodModel):
         #kwds.setdefault('epsilon', 1e-4)
         kwds.setdefault('centered', True)
         return approx_fprime(params, self.loglikeobs, **kwds)
+
+    jac = np.deprecate(score_obs, 'jac', 'score_obs', "Use score_obs method."
+                       " jac will be removed in 0.7.")
 
     def hessian(self, params):
         '''
@@ -858,14 +910,57 @@ class LikelihoodModelResults(Results):
     # can be overwritten by instances or subclasses
     use_t = False
 
-    def __init__(self, model, params, normalized_cov_params=None, scale=1.):
+    def __init__(self, model, params, normalized_cov_params=None, scale=1.,
+                 **kwargs):
         super(LikelihoodModelResults, self).__init__(model, params)
         self.normalized_cov_params = normalized_cov_params
         self.scale = scale
 
+        # robust covariance
+        # We put cov_type in kwargs so subclasses can decide in fit whether to
+        # use this generic implementation
+        if 'use_t' in kwargs:
+            use_t = kwargs['use_t']
+            if use_t is not None:
+                self.use_t = use_t
+        if 'cov_type' in kwargs:
+            cov_type = kwargs.get('cov_type', 'nonrobust')
+            cov_kwds = kwargs.get('cov_kwds', {})
+
+            if cov_type == 'nonrobust':
+                self.cov_type = 'nonrobust'
+                self.cov_kwds = {'description' : 'Standard Errors assume that the ' +
+                                 'covariance matrix of the errors is correctly ' +
+                                 'specified.'}
+            else:
+                from statsmodels.base.covtype import get_robustcov_results
+                if cov_kwds is None:
+                    cov_kwds = {}
+                use_t = self.use_t
+                # TODO: we shouldn't need use_t in get_robustcov_results
+                get_robustcov_results(self, cov_type=cov_type, use_self=True,
+                                           use_t=use_t, **cov_kwds)
+
 
     def normalized_cov_params(self):
         raise NotImplementedError
+
+
+    def _get_robustcov_results(self, cov_type='nonrobust', use_self=True,
+                                   use_t=None, **cov_kwds):
+        from statsmodels.base.covtype import get_robustcov_results
+        if cov_kwds is None:
+            cov_kwds = {}
+
+        if cov_type == 'nonrobust':
+            self.cov_type = 'nonrobust'
+            self.cov_kwds = {'description' : 'Standard Errors assume that the ' +
+                             'covariance matrix of the errors is correctly ' +
+                             'specified.'}
+        else:
+            # TODO: we shouldn't need use_t in get_robustcov_results
+            get_robustcov_results(self, cov_type=cov_type, use_self=True,
+                                       use_t=use_t, **cov_kwds)
 
     @cache_readonly
     def llf(self):
@@ -885,7 +980,8 @@ class LikelihoodModelResults(Results):
     @cache_readonly
     def pvalues(self):
         if self.use_t:
-            return stats.t.sf(np.abs(self.tvalues), self.df_resid)*2
+            df_resid = getattr(self, 'df_resid_inference', self.df_resid)
+            return stats.t.sf(np.abs(self.tvalues), df_resid)*2
         else:
             return stats.norm.sf(np.abs(self.tvalues))*2
 
@@ -984,7 +1080,7 @@ class LikelihoodModelResults(Results):
             return cov_p
 
     #TODO: make sure this works as needed for GLMs
-    def t_test(self, r_matrix, q_matrix=None, cov_p=None, scale=None,
+    def t_test(self, r_matrix, cov_p=None, scale=None,
                use_t=None):
         """
         Compute a t-test for a each linear hypothesis of the form Rb = q
@@ -993,16 +1089,12 @@ class LikelihoodModelResults(Results):
         ----------
         r_matrix : array-like, str, tuple
             - array : If an array is given, a p x k 2d array or length k 1d
-              array specifying the linear restrictions.
+              array specifying the linear restrictions. It is assumed
+              that the linear combination is equal to zero.
             - str : The full hypotheses to test can be given as a string.
               See the examples.
-            - tuple : A tuple of arrays in the form (R, q), since q_matrix is
-              deprecated.
-        q_matrix : array-like or scalar, optional
-            This is deprecated. See `r_matrix` and the examples for more
-            information on new usage. Can be either a scalar or a length p
-            row vector. If omitted and r_matrix is an array, `q_matrix` is
-            assumed to be a conformable array of zeros.
+            - tuple : A tuple of arrays in the form (R, q). If q is given,
+              can be either a scalar or a length p row vector.
         cov_p : array-like, optional
             An alternative estimate for the parameter covariance matrix.
             If None is given, self.normalized_cov_params is used.
@@ -1068,13 +1160,8 @@ class LikelihoodModelResults(Results):
         patsy.DesignInfo.linear_constraint
         """
         from patsy import DesignInfo
-        if q_matrix is not None:
-            from warnings import warn
-            warn("The `q_matrix` keyword is deprecated and will be removed "
-                 "in 0.6.0. See the documentation for the new API",
-                 FutureWarning)
-            r_matrix = (r_matrix, q_matrix)
-        LC = DesignInfo(self.model.exog_names).linear_constraint(r_matrix)
+        names = self.model.data.param_names
+        LC = DesignInfo(names).linear_constraint(r_matrix)
         r_matrix, q_matrix = LC.coefs, LC.constants
         num_ttests = r_matrix.shape[0]
         num_params = r_matrix.shape[1]
@@ -1111,16 +1198,17 @@ class LikelihoodModelResults(Results):
             _sd = np.sqrt(self.cov_params(r_matrix=r_matrix, cov_p=cov_p))
         _t = (_effect - q_matrix) * recipr(_sd)
 
+        df_resid = getattr(self, 'df_resid_inference', self.df_resid)
+
         if use_t:
             return ContrastResults(effect=_effect, t=_t, sd=_sd,
-                                   df_denom=self.df_resid)
+                                   df_denom=df_resid)
         else:
             return ContrastResults(effect=_effect, statistic=_t, sd=_sd,
-                                   df_denom=self.df_resid,
+                                   df_denom=df_resid,
                                    distribution='norm')
 
-    def f_test(self, r_matrix, q_matrix=None, cov_p=None, scale=1.0,
-               invcov=None):
+    def f_test(self, r_matrix, cov_p=None, scale=1.0, invcov=None):
         """
         Compute the F-test for a joint linear hypothesis.
 
@@ -1131,16 +1219,12 @@ class LikelihoodModelResults(Results):
         ----------
         r_matrix : array-like, str, or tuple
             - array : An r x k array where r is the number of restrictions to
-              test and k is the number of regressors.
+              test and k is the number of regressors. It is assumed
+              that the linear combination is equal to zero.
             - str : The full hypotheses to test can be given as a string.
               See the examples.
-            - tuple : A tuple of arrays in the form (R, q), since q_matrix is
-              deprecated.
-        q_matrix : array-like
-            This is deprecated. See `r_matrix` and the examples for more
-            information on new usage. Can be either a scalar or a length p
-            row vector. If omitted and r_matrix is an array, `q_matrix` is
-            assumed to be a conformable array of zeros.
+            - tuple : A tuple of arrays in the form (R, q), ``q`` can be
+              either a scalar or a length k row vector.
         cov_p : array-like, optional
             An alternative estimate for the parameter covariance matrix.
             If None is given, self.normalized_cov_params is used.
@@ -1217,13 +1301,13 @@ class LikelihoodModelResults(Results):
         design matrix of the model. There can be problems in non-OLS models
         where the rank of the covariance of the noise is not full.
         """
-        res = self.wald_test(r_matrix, q_matrix=q_matrix, cov_p=cov_p,
-                             scale=scale, invcov=invcov, use_f=True)
+        res = self.wald_test(r_matrix, cov_p=cov_p, scale=scale,
+                             invcov=invcov, use_f=True)
         return res
 
     #TODO: untested for GLMs?
-    def wald_test(self, r_matrix, q_matrix=None, cov_p=None, scale=1.0,
-                  invcov=None, use_f=None):
+    def wald_test(self, r_matrix, cov_p=None, scale=1.0, invcov=None,
+                  use_f=None):
         """
         Compute a Wald-test for a joint linear hypothesis.
 
@@ -1231,16 +1315,12 @@ class LikelihoodModelResults(Results):
         ----------
         r_matrix : array-like, str, or tuple
             - array : An r x k array where r is the number of restrictions to
-              test and k is the number of regressors.
+              test and k is the number of regressors. It is assumed that the
+              linear combination is equal to zero.
             - str : The full hypotheses to test can be given as a string.
               See the examples.
-            - tuple : A tuple of arrays in the form (R, q), since q_matrix is
-              deprecated.
-        q_matrix : array-like
-            This is deprecated. See `r_matrix` and the examples for more
-            information on new usage. Can be either a scalar or a length p
-            row vector. If omitted and r_matrix is an array, `q_matrix` is
-            assumed to be a conformable array of zeros.
+            - tuple : A tuple of arrays in the form (R, q), ``q`` can be
+              either a scalar or a length p row vector.
         cov_p : array-like, optional
             An alternative estimate for the parameter covariance matrix.
             If None is given, self.normalized_cov_params is used.
@@ -1283,13 +1363,8 @@ class LikelihoodModelResults(Results):
             use_f = (hasattr(self, 'use_t') and self.use_t)
 
         from patsy import DesignInfo
-        if q_matrix is not None:
-            from warnings import warn
-            warn("The `q_matrix` keyword is deprecated and will be removed "
-                 "in 0.6.0. See the documentation for the new API",
-                 FutureWarning)
-            r_matrix = (r_matrix, q_matrix)
-        LC = DesignInfo(self.model.exog_names).linear_constraint(r_matrix)
+        names = self.model.data.param_names
+        LC = DesignInfo(names).linear_constraint(r_matrix)
         r_matrix, q_matrix = LC.coefs, LC.constants
 
         if (self.normalized_cov_params is None and cov_p is None and
@@ -1323,9 +1398,10 @@ class LikelihoodModelResults(Results):
         else:
             F = np.dot(np.dot(Rbq.T, invcov), Rbq)
 
+        df_resid = getattr(self, 'df_resid_inference', self.df_resid)
         if use_f:
             F /= J
-            return ContrastResults(F=F, df_denom=self.df_resid,
+            return ContrastResults(F=F, df_denom=df_resid,
                                    df_num=invcov.shape[0])
         else:
             return ContrastResults(chi2=F, df_denom=J, statistic=F,
@@ -1390,7 +1466,8 @@ class LikelihoodModelResults(Results):
 
         if self.use_t:
             dist = stats.t
-            q = dist.ppf(1 - alpha / 2, self.df_resid)
+            df_resid = getattr(self, 'df_resid_inference', self.df_resid)
+            q = dist.ppf(1 - alpha / 2, df_resid)
         else:
             dist = stats.norm
             q = dist.ppf(1 - alpha / 2)
@@ -1546,10 +1623,14 @@ class ResultMixin(object):
         return -2 * self.llf + np.log(self.nobs) * (self.df_modelwc)
 
     @cache_readonly
-    def jacv(self):
+    def score_obsv(self):
         '''cached Jacobian of log-likelihood
         '''
-        return self.model.jac(self.params)
+        return self.model.score_obs(self.params)
+
+    jacv = np.deprecate(score_obsv, 'jacv', 'score_obsv',
+                        "Use score_obsv attribute."
+                       " jacv will be removed in 0.7.")
 
     @cache_readonly
     def hessv(self):
@@ -1568,7 +1649,7 @@ class ResultMixin(object):
         ##      raise ValueError('need to call fit first')
         ##      #self.fit()
         ##  self.jacv = jacv = self.jac(self._results.params)
-        jacv = self.jacv
+        jacv = self.score_obsv
         return np.linalg.inv(np.dot(jacv.T, jacv))
 
     @cache_readonly
@@ -1579,11 +1660,10 @@ class ResultMixin(object):
 
         name should be covhjh
         '''
-        jacv = self.jacv
-        ##  hessv = self.hessv
-        ##  hessinv = np.linalg.inv(hessv)
-        ##  self.hessinv = hessinv
-        hessinv = self.cov_params()
+        jacv = self.score_obsv
+        hessv = self.hessv
+        hessinv = np.linalg.inv(hessv)
+        ##  self.hessinv = hessin = self.cov_params()
         return np.dot(hessinv, np.dot(np.dot(jacv.T, jacv), hessinv))
 
     @cache_readonly
@@ -1637,7 +1717,7 @@ class ResultMixin(object):
         print(self.model.__class__)
         hascloneattr = True if hasattr(self, 'cloneattr') else False
         for i in range(nrep):
-            rvsind = np.random.randint(self.nobs - 1, size=self.nobs)
+            rvsind = np.random.randint(self.nobs, size=self.nobs)
             #this needs to set startparam and get other defining attributes
             #need a clone method on model
             fitmod = self.model.__class__(self.endog[rvsind],

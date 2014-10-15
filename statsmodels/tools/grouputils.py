@@ -371,7 +371,16 @@ class Grouping(object):
         if hasattr(self.index, 'labels'):
             return self.index.labels
         else:  # pandas version issue here
-            return pd.Categorical(self.index).labels[None]
+            # Compat code for the labels -> codes change in pandas 0.15
+            # FIXME: use .codes directly when we don't want to support pandas < 0.15
+            tmp = pd.Categorical(self.index)
+            try:
+                labl = tmp.labels
+            except AttributeError:
+                labl = tmp.codes
+
+            return labl[None]
+
 
     @property
     def group_names(self):

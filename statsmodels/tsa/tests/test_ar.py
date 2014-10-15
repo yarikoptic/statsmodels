@@ -4,8 +4,8 @@ Test AR Model
 import statsmodels.api as sm
 from statsmodels.compat.python import range
 from statsmodels.tsa.ar_model import AR
-from numpy.testing import (assert_almost_equal, assert_equal, assert_allclose,
-                           assert_)
+from numpy.testing import (assert_almost_equal, assert_allclose, assert_)
+from statsmodels.tools.testing import assert_equal
 from .results import results_ar
 import numpy as np
 import numpy.testing as npt
@@ -282,7 +282,7 @@ def test_ar_start_params():
     # smoke test
     data = sm.datasets.sunspots.load()
     res = AR(data.endog).fit(maxlag=9, start_params=0.1*np.ones(10.),
-                             method="mle", disp=-1)
+                             method="mle", disp=-1, maxiter=100)
 
 def test_ar_series():
     # smoke test for 773
