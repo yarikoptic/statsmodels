@@ -1,7 +1,6 @@
-statsmodels (0.5.0+git1491-g850e0e4-1) experimental; urgency=medium
+statsmodels (0.6.0~rc1-1) unstable; urgency=medium
 
-  * Building current upstream snapshot to verify correct operation across
-    releases/architectures
+  * Upstream release candidate
   * debian/patches
     - changeset_ee75d978ec4c46b506b5429d4f65fdf38866ec4d.diff redone into
       deb_use_internal_ipythonsphinx_extensions to facilate building
@@ -10,7 +9,7 @@ statsmodels (0.5.0+git1491-g850e0e4-1) experimental; urgency=medium
   * debian/rules
     - clean up cythonize.dat
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 08 Oct 2014 13:31:36 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 15 Oct 2014 17:24:48 -0400
 
 statsmodels (0.5.0+git13-g8e07d34-2) unstable; urgency=medium
 
