@@ -453,7 +453,7 @@ class MixedLM(base.LikelihoodModel):
     """
 
     def __init__(self, endog, exog, groups, exog_re=None,
-                 use_sqrt=True, missing='none'):
+                 use_sqrt=True, missing='none', **kwargs):
 
         self.use_sqrt = use_sqrt
 
@@ -474,7 +474,8 @@ class MixedLM(base.LikelihoodModel):
         # Calling super creates self.endog, etc. as ndarrays and the
         # original exog, endog, etc. are self.data.endog, etc.
         super(MixedLM, self).__init__(endog, exog, groups=groups,
-                                      exog_re=exog_re, missing=missing)
+                                      exog_re=exog_re, missing=missing,
+                                      **kwargs)
 
         self.k_fe = exog.shape[1] # Number of fixed effects parameters
 
@@ -573,7 +574,12 @@ class MixedLM(base.LikelihoodModel):
         args : extra arguments
             These are passed to the model
         kwargs : extra keyword arguments
-            These are passed to the model.
+            These are passed to the model with one exception. The
+            ``eval_env`` keyword is passed to patsy. It can be either a
+            :class:`patsy:patsy.EvalEnvironment` object or an integer
+            indicating the depth of the namespace to use. For example, the
+            default ``eval_env=0`` uses the calling namespace. If you wish
+            to use a "clean" environment set ``eval_env=-1``.
 
         Returns
         -------
@@ -603,7 +609,13 @@ class MixedLM(base.LikelihoodModel):
             kwargs["groups"] = np.asarray(data[kwargs["groups"]])
 
         if re_formula is not None:
-            exog_re = patsy.dmatrix(re_formula, data)
+            eval_env = kwargs.get('eval_env', None)
+            if eval_env is None:
+                eval_env = 1
+            elif eval_env == -1:
+                from patsy import EvalEnvironment
+                eval_env = EvalEnvironment({})
+            exog_re = patsy.dmatrix(re_formula, data, eval_env=eval_env)
             exog_re_names = exog_re.design_info.column_names
             exog_re = np.asarray(exog_re)
         else:

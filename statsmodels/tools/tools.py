@@ -444,18 +444,6 @@ def fullrank(X, r=None):
         value.append(V[:, order[i]])
     return np.asarray(np.transpose(value)).astype(np.float64)
 
-StepFunction = np.deprecate(StepFunction,
-                            old_name='statsmodels.tools.tools.StepFunction',
-                            new_name='statsmodels.distributions.StepFunction')
-monotone_fn_inverter = np.deprecate(monotone_fn_inverter,
-                                    old_name='statsmodels.tools.tools'
-                                             '.monotone_fn_inverter',
-                                    new_name='statsmodels.distributions'
-                                             '.monotone_fn_inverter')
-ECDF = np.deprecate(ECDF,
-                    old_name='statsmodels.tools.tools.ECDF',
-                    new_name='statsmodels.distributions.ECDF')
-
 
 def unsqueeze(data, axis, oldshape):
     """
@@ -489,8 +477,8 @@ def chain_dot(*arrs):
     -------
     Dot product of all arguments.
 
-    Example
-    -------
+    Examples
+    --------
     >>> import numpy as np
     >>> from statsmodels.tools import chain_dot
     >>> A = np.arange(1,13).reshape(3,4)

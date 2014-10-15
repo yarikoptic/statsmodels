@@ -365,8 +365,8 @@ class BinaryModel(DiscreteModel):
     def __init__(self, endog, exog, **kwargs):
         super(BinaryModel, self).__init__(endog, exog, **kwargs)
         if (self.__class__.__name__ != 'MNLogit' and
-            not np.all(np.unique(self.endog) == [0, 1])):
-            raise ValueError("endog must contain 0s and 1s only.")
+                not np.all((self.endog >= 0) & (self.endog <= 1))):
+            raise ValueError("endog must be in the unit interval.")
 
 
     def predict(self, params, exog=None, linear=False):
@@ -648,10 +648,11 @@ class MultinomialModel(BinaryModel):
         return margeff.reshape(len(exog), -1, order='F')
 
 class CountModel(DiscreteModel):
-    def __init__(self, endog, exog, offset=None, exposure=None, missing='none'):
+    def __init__(self, endog, exog, offset=None, exposure=None, missing='none',
+                 **kwargs):
         self._check_inputs(offset, exposure, endog) # attaches if needed
         super(CountModel, self).__init__(endog, exog, missing=missing,
-                offset=self.offset, exposure=self.exposure)
+                offset=self.offset, exposure=self.exposure, **kwargs)
         if offset is None:
             delattr(self, 'offset')
         if exposure is None:
@@ -1903,10 +1904,10 @@ class NegativeBinomial(CountModel):
 
     """ + base._missing_param_doc}
     def __init__(self, endog, exog, loglike_method='nb2', offset=None,
-                       exposure=None, missing='none'):
+                       exposure=None, missing='none', **kwargs):
         super(NegativeBinomial, self).__init__(endog, exog, offset=offset,
                                                exposure=exposure,
-                                               missing=missing)
+                                               missing=missing, **kwargs)
         self.loglike_method = loglike_method
         self._initialize()
         if loglike_method in ['nb2', 'nb1']:
@@ -2438,17 +2439,6 @@ class DiscreteResults(base.LikelihoodModelResults):
         from statsmodels.discrete.discrete_margins import DiscreteMargins
         return DiscreteMargins(self, (at, method, atexog, dummy, count))
 
-
-    def margeff(self, at='overall', method='dydx', atexog=None, dummy=False,
-            count=False):
-        """DEPRECATED: marginal effects, use get_margeff instead
-        """
-        import warnings
-        warnings.warn("This method is deprecated and will be removed in 0.6.0."
-                " Use get_margeff instead", FutureWarning)
-        return self.get_margeff(at, method, atexog, dummy, count)
-
-
     def summary(self, yname=None, xname=None, title=None, alpha=.05,
                 yname_list=None):
         """Summarize the Regression Results
@@ -2725,13 +2715,6 @@ class BinaryResults(DiscreteResults):
             smry.add_extra_txt(etext)
         return smry
     summary.__doc__ = DiscreteResults.summary.__doc__
-
-    @cache_readonly
-    def resid(self):
-        import warnings
-        warnings.warn("This attribute is deprecated and will be removed in "
-                      "0.6.0. Use resid_dev instead.", FutureWarning)
-        return self.resid_dev
 
     @cache_readonly
     def resid_dev(self):

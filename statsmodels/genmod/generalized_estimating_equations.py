@@ -407,7 +407,7 @@ class GEE(base.Model):
     def __init__(self, endog, exog, groups, time=None, family=None,
                  cov_struct=None, missing='none', offset=None,
                  exposure=None, dep_data=None, constraint=None,
-                 update_dep=True):
+                 update_dep=True, **kwargs):
 
         self.missing = missing
         self.dep_data = dep_data
@@ -423,7 +423,8 @@ class GEE(base.Model):
         super(GEE, self).__init__(endog, exog, groups=groups,
                                   time=time, offset=offset,
                                   exposure=exposure,
-                                  dep_data=dep_data, missing=missing)
+                                  dep_data=dep_data, missing=missing,
+                                  **kwargs)
 
         self._init_keys.extend(["update_dep", "constraint", "family",
                                 "cov_struct"])
@@ -598,7 +599,12 @@ class GEE(base.Model):
         args : extra arguments
             These are passed to the model
         kwargs : extra keyword arguments
-            These are passed to the model.
+            These are passed to the model with one exception. The
+            ``eval_env`` keyword is passed to patsy. It can be either a
+            :class:`patsy:patsy.EvalEnvironment` object or an integer
+            indicating the depth of the namespace to use. For example, the
+            default ``eval_env=0`` uses the calling namespace. If you wish
+            to use a "clean" environment set ``eval_env=-1``.
 
         Returns
         -------
