@@ -16,7 +16,8 @@ Build-Depends: debhelper (>= 7.0.50~),
                cython,
                python-patsy,
                python-cvxopt,
-Standards-Version: 3.9.4
+               nodejs,
+Standards-Version: 3.9.6
 X-Python-Version: >= 2.7
 Homepage: http://statsmodels.sourceforge.net/
 Vcs-Git: git://git.debian.org/pkg-exppsy/statsmodels.git

@@ -8,8 +8,11 @@ statsmodels (0.6.0~rc2-1) unstable; urgency=medium
     - up_explicit_path_to_nbgenerate to provide explict path to notebooks
   * debian/rules
     - clean up cythonize.dat
+  * debian/control
+    - nodejs was added to build-depends (neccessary for docs building)
+    - boost policy to 3.9.6 (no changes)
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 21 Oct 2014 23:24:25 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 22 Oct 2014 19:32:58 -0400
 
 statsmodels (0.5.0+git13-g8e07d34-2) unstable; urgency=medium
 
