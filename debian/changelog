@@ -1,4 +1,4 @@
-statsmodels (0.6.0~rc1-1) unstable; urgency=medium
+statsmodels (0.6.0~rc2-1) unstable; urgency=medium
 
   * Upstream release candidate
   * debian/patches
@@ -9,7 +9,7 @@ statsmodels (0.6.0~rc1-1) unstable; urgency=medium
   * debian/rules
     - clean up cythonize.dat
 
- -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 15 Oct 2014 17:24:48 -0400
+ -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 21 Oct 2014 23:24:25 -0400
 
 statsmodels (0.5.0+git13-g8e07d34-2) unstable; urgency=medium
 
